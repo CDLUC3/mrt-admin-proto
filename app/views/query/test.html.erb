@@ -1,0 +1,20 @@
+<h1><%= title %>! </h1>
+
+<h2>Results</h2>
+<table>
+  <%
+  data.each do |row|
+  %>
+    <tr>
+      <%
+      row.each do |col|
+      %>
+        <td><%= col %></td>
+      <%
+      end
+      %>
+    </tr>
+  <%
+  end
+  %>
+</table>
