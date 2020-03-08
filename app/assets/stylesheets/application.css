@@ -13,3 +13,37 @@
  *= require_tree .
  *= require_self
  */
+
+body {
+  width: 100%;
+}
+
+div.results {
+  margin: 0 0 auto;
+}
+
+table.results {
+  border-collapse: collapse;
+  width: 80%;
+}
+
+table.results th,
+table.results td {
+  border: thin solid black;
+  padding: 4px;
+}
+
+table.results th.data,
+table.results td.data {
+  text-align: right;
+}
+
+table.results tr.row:nth-child(even) th.cell,
+table.results tr.row:nth-child(even) td.cell {
+  background-color: #EEE;
+}
+
+table.results tr.header th,
+table.results tr.header td {
+  background-color: yellow;
+}

@@ -10,7 +10,27 @@ class QueryController < ApplicationController
     run_query(sql, {}, "Test Query")
   end
 
-  private
+  def large_object
+    sql = %{
+      select
+        o.id,
+        o.ark,
+        format(sum(f.billable_size), 0) as tot
+      from
+        inv_files f
+      inner join inv_objects o
+        on f.inv_object_id=o.id
+      group by
+        o.id,
+        o.ark
+      having
+        sum(f.billable_size) > 1073741824
+      order by sum(f.billable_size) desc;
+    }
+    run_query(sql, {}, "Large Objects")
+  end
+
+private
 
   def run_query(sql, params, title)
     results = ActiveRecord::Base

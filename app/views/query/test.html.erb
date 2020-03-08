@@ -1,7 +1,8 @@
 <h1><%= title %>! </h1>
 
 <h2>Results</h2>
-<table>
+<div class="results">
+<table class="results">
   <%
   data.each do |row|
   %>
@@ -9,7 +10,7 @@
       <%
       row.each do |col|
       %>
-        <td><%= col %></td>
+        <td class="cell"><%= col %></td>
       <%
       end
       %>
@@ -18,3 +19,4 @@
   end
   %>
 </table>
+</div>
