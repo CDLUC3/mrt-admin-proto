@@ -11,11 +11,11 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-    - published: 3000
-      target: 3000
+    - published: 8085
+      target: 9292
     volumes:
     - type: bind
       source: ./config/database.yml
-      target: /var/www/app_name/config/database.yml
+      target: /app/config/database.yml
     stdin_open: true
     tty: true
