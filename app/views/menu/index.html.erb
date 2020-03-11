@@ -8,12 +8,10 @@
   <li><%= link_to("Storage Nodes", :controller => :query, :action => :nodes) %></li>
   <li><%= link_to("Storage Nodes by Collection", :controller => :query, :action => :coll_nodes) %></li>
   <li><%= link_to("Storage Nodes with Collections", :controller => :query, :action => :coll_nodes_by_node) %></li>
-  <li>Objects with many files</li>
-  <li>Holdings by Owner</li>
-  <li>Holdings by Collection</li>
+  <li><%= link_to("Holding by Owner", :controller => :query, :action => :owners) %></li>
+  <li><%= link_to("Holding by Owner/Collection", :controller => :query, :action => :owners_coll) %></li>
   <li><%= link_to("Mime Types", :controller => :query, :action => :mime_types) %></li>
   <li><%= link_to("Mime Types by Collection", :controller => :query, :action => :coll_mime_types) %></li>
-  <li>Mime Types by Owner</li>
-  <li>Mime Types by Collection</li>
-  <li>ARK's with Unicode</li>
+  <li><%= link_to("Mime Types by Owner", :controller => :query, :action => :owner_mime_types) %></li>
+  <li><%= link_to("Files with Non-Ascii Filenames", :controller => :query, :action => :files_non_ascii) %></li>
 </ul>

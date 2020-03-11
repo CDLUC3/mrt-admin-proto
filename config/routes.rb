@@ -9,5 +9,9 @@ Rails.application.routes.draw do
   get 'query/coll_nodes_by_node'
   get 'query/mime_types'
   get 'query/coll_mime_types'
+  get 'query/owner_mime_types'
+  get 'query/owners'
+  get 'query/owners_coll'
+  get 'query/files_non_ascii'
   # For details on the DSL available within this file, see https://guides.rubyonrails.org/routing.html
 end

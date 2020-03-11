@@ -8,6 +8,7 @@ class QueryController < ApplicationController
         o.erc_what,
         o.version_number,
         o.inv_owner_id,
+        own.name
         (
           select
             count(f.id)
@@ -26,6 +27,8 @@ class QueryController < ApplicationController
         )
       from
         inv_objects o
+      inner join inv_owners own
+        on own.id = o.inv_owner_id
       order by o.id asc
       limit 10;
     }
@@ -33,8 +36,158 @@ class QueryController < ApplicationController
       sql: sql,
       params: {},
       title: '10 Objects',
-      headers: ['Object Id','Ark', 'Title', 'Version', 'Owner', 'File Count', 'Billable Size'],
-      types: ['', '', '', '', 'owner', 'data', 'data']
+      headers: ['Object Id','Ark', 'Title', 'Version', 'Owner Id', 'Owner', 'File Count', 'Billable Size'],
+      types: ['', '', '', '', 'owner', '', 'data', 'data']
+    )
+  end
+
+  def files_non_ascii
+    sql = %{
+      select
+        f.pathname,
+        o.id,
+        o.ark,
+        c.id,
+        c.name
+      from
+        inv_files f
+      inner join inv_objects o
+        on f.inv_object_id = o.id
+      inner join inv_collections_inv_objects co
+        on co.inv_object_id = o.id
+      inner join inv_collections c
+        on c.id = co.inv_collection_id and o.id = co.inv_object_id
+      where
+        f.pathname <> CONVERT(f.pathname USING ASCII)
+      order by f.pathname
+      limit 500;
+    }
+    run_query(
+      sql: sql,
+      params: {},
+      title: 'Files with Non Ascii Path',
+      headers: ['File Path', 'Object Id', 'Ark', 'Collection Id', 'Collection Name'],
+      types: ['', '', '', '', '']
+    )
+  end
+
+  def owners
+    sql = %{
+      select
+        own.id,
+        own.name,
+        (
+          select
+            count(o.id)
+          from
+            inv_objects o
+          where
+            o.inv_owner_id = own.id
+        ),
+        (
+          select
+            count(f.id)
+          from
+            inv_objects o
+          inner join inv_files f
+            on f.inv_object_id = o.id
+          where
+            o.inv_owner_id = own.id
+        ),
+        (
+          select
+            sum(f.billable_size)
+          from
+            inv_objects o
+          inner join inv_files f
+            on f.inv_object_id = o.id
+          where
+            o.inv_owner_id = own.id
+        )
+      from
+        inv_owners own
+      order by own.id asc
+    }
+    run_query(
+      sql: sql,
+      params: {},
+      title: 'Counts by Owner',
+      headers: ['Owner Id','Owner', 'Object Count', 'File Count', 'Billable Size'],
+      types: ['', '', '', 'data', 'data', 'data']
+    )
+  end
+
+  def owners_coll
+    sql = %{
+      select
+        own.id,
+        own.name,
+        c.id,
+        c.name,
+        (
+          select
+            count(o.id)
+          from
+            inv_objects o
+          inner join inv_collections_inv_objects co
+            on co.inv_object_id = o.id
+          where
+            o.inv_owner_id = own.id
+          and
+            c.id = co.inv_collection_id
+        ),
+        (
+          select
+            count(f.id)
+          from
+            inv_objects o
+          inner join inv_files f
+            on f.inv_object_id = o.id
+          inner join inv_collections_inv_objects co
+            on co.inv_object_id = o.id
+          where
+            o.inv_owner_id = own.id
+          and
+            c.id = co.inv_collection_id
+        ),
+        (
+          select
+            sum(f.billable_size)
+          from
+            inv_objects o
+          inner join inv_files f
+            on f.inv_object_id = o.id
+          inner join inv_collections_inv_objects co
+            on co.inv_object_id = o.id
+          where
+            o.inv_owner_id = own.id
+          and
+            c.id = co.inv_collection_id
+        )
+      from
+        inv_owners own,
+        inv_collections c
+      where exists (
+        select 1
+        from
+          inv_objects o
+        inner join inv_collections_inv_objects co
+          on co.inv_object_id = o.id
+        where
+          own.id = o.inv_owner_id
+        and
+          c.id = co.inv_collection_id
+      )
+      order by
+        own.id,
+        c.id
+    }
+    run_query(
+      sql: sql,
+      params: {},
+      title: 'Counts by Owner',
+      headers: ['Owner Id','Owner', 'Collection Id', 'Collection Name', 'Object Count', 'File Count', 'Billable Size'],
+      types: ['', '', '', '', '', 'data', 'data', 'data']
     )
   end
 
@@ -210,7 +363,7 @@ class QueryController < ApplicationController
     run_query(
       sql: sql,
       params: {},
-      title: 'Storage Nodes',
+      title: 'Storage Nodes by Collection',
       headers: ['Collection Id', 'Collection Name','Node Number', 'Description', 'Total Obj', 'Primary', 'Secondary'],
       types: ['', '', '', '', 'data', 'data', 'data']
     )
@@ -283,9 +436,33 @@ class QueryController < ApplicationController
     run_query(
       sql: sql,
       params: {},
-      title: 'Storage Nodes',
+      title: 'Storage Nodes with Collection',
       headers: ['Node Number', 'Description', 'Collection Id', 'Collection Name', 'Total Obj', 'Primary', 'Secondary'],
       types: ['', '', '', '', 'data', 'data', 'data']
+    )
+  end
+
+  def mime_types
+    sql = %{
+      select
+        f.mime_type,
+        count(*),
+        sum(f.billable_size)
+      from
+        inv_files f
+      where
+        f.source = 'producer'
+      group by
+        f.mime_type
+      order by
+        count(*) desc;
+    }
+    run_query(
+      sql: sql,
+      params: {},
+      title: 'Mime Types',
+      headers: ['Mime Type', 'File Count', 'Billable Size'],
+      types: ['', 'data', 'data']
     )
   end
 
@@ -311,33 +488,37 @@ class QueryController < ApplicationController
     run_query(
       sql: sql,
       params: {},
-      title: 'Storage Nodes',
+      title: 'Mime Types by Collection',
       headers: ['Collection Id', 'Collection Name', 'Mime Type', 'File Count', 'Billable Size'],
       types: ['', '', '', 'data', 'data']
     )
   end
 
-  def mime_types
+  def owner_mime_types
     sql = %{
       select
+        own.id,
+        own.name,
         f.mime_type,
         count(*),
         sum(f.billable_size)
       from
-        inv_files f
+        inv_owners own
+      inner join inv_objects o
+        on o.inv_owner_id = own.id
+      inner join inv_files f
+        on f.inv_object_id = o.id
       where
         f.source = 'producer'
-      group by
-        f.mime_type
-      order by
-        count(*) desc;
+      group by own.id, own.name, f.mime_type
+      order by own.id, count(*) desc;
     }
     run_query(
       sql: sql,
       params: {},
-      title: 'Storage Nodes',
-      headers: ['Mime Type', 'File Count', 'Billable Size'],
-      types: ['', 'data', 'data']
+      title: 'Mime Types by Owner',
+      headers: ['Owner Id', 'Owner Name', 'Mime Type', 'File Count', 'Billable Size'],
+      types: ['', '', '', 'data', 'data']
     )
   end
 
