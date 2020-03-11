@@ -101,23 +101,191 @@ class QueryController < ApplicationController
       select
         number,
         description,
-        count(*)
+        (
+          select
+            count(*)
+          from
+            inv_nodes_inv_objects inio
+          where
+            n.id=inio.inv_node_id
+        ) as total,
+        (
+          select
+            count(*)
+          from
+            inv_nodes_inv_objects inio
+          where
+            n.id=inio.inv_node_id
+          and
+            role = 'primary'
+        ),
+        (
+          select
+            count(*)
+          from
+            inv_nodes_inv_objects inio
+          where
+            n.id=inio.inv_node_id
+          and
+            role = 'secondary'
+        )
       from
         inv_nodes n
-      inner join inv_nodes_inv_objects inio
-        on n.id=inio.inv_node_id
-      group by
-        number,
-        description
       order by
-        count(*) desc;
+        total desc;
     }
     run_query(
       sql: sql,
       params: {},
       title: 'Storage Nodes',
-      headers: ['Node Number', 'Description', 'Object Count'],
-      types: ['', '', 'data']
+      headers: ['Node Number', 'Description', 'Total Obj', 'Primary', 'Secondary'],
+      types: ['', '', 'data', 'data', 'data']
+    )
+  end
+
+  def coll_nodes
+    sql = %{
+      select
+        c.id,
+        c.name,
+        n.number,
+        n.description,
+        (
+          select
+            count(*)
+          from
+            inv_nodes_inv_objects inio
+            inner join inv_collections_inv_objects co
+              on co.inv_object_id = inio.inv_object_id
+            where
+              n.id=inio.inv_node_id
+            and
+              c.id=co.inv_collection_id
+        ) as total,
+        (
+          select
+            count(*)
+          from
+            inv_nodes_inv_objects inio
+          inner join inv_collections_inv_objects co
+            on co.inv_object_id = inio.inv_object_id
+          where
+            n.id=inio.inv_node_id
+          and
+            c.id=co.inv_collection_id
+          and
+            role = 'primary'
+        ),
+        (
+          select
+            count(*)
+          from
+            inv_nodes_inv_objects inio
+          inner join inv_collections_inv_objects co
+            on co.inv_object_id = inio.inv_object_id
+          where
+            n.id=inio.inv_node_id
+          and
+            c.id=co.inv_collection_id
+          and
+            role = 'secondary'
+        )
+      from
+        inv_nodes n,
+        inv_collections c
+      where exists (
+        select 1
+        from
+          inv_nodes_inv_objects inio
+        inner join inv_collections_inv_objects co
+          on co.inv_object_id = inio.inv_object_id
+        where
+          n.id=inio.inv_node_id
+        and
+          c.id=co.inv_collection_id
+      )
+      order by
+        c.id, n.number
+    }
+    run_query(
+      sql: sql,
+      params: {},
+      title: 'Storage Nodes',
+      headers: ['Collection Id', 'Collection Name','Node Number', 'Description', 'Total Obj', 'Primary', 'Secondary'],
+      types: ['', '', '', '', 'data', 'data', 'data']
+    )
+  end
+
+  def coll_nodes_by_node
+    sql = %{
+      select
+        n.number,
+        n.description,
+        c.id,
+        c.name,
+        (
+          select
+            count(*)
+          from
+            inv_nodes_inv_objects inio
+            inner join inv_collections_inv_objects co
+              on co.inv_object_id = inio.inv_object_id
+            where
+              n.id=inio.inv_node_id
+            and
+              c.id=co.inv_collection_id
+        ) as total,
+        (
+          select
+            count(*)
+          from
+            inv_nodes_inv_objects inio
+          inner join inv_collections_inv_objects co
+            on co.inv_object_id = inio.inv_object_id
+          where
+            n.id=inio.inv_node_id
+          and
+            c.id=co.inv_collection_id
+          and
+            role = 'primary'
+        ),
+        (
+          select
+            count(*)
+          from
+            inv_nodes_inv_objects inio
+          inner join inv_collections_inv_objects co
+            on co.inv_object_id = inio.inv_object_id
+          where
+            n.id=inio.inv_node_id
+          and
+            c.id=co.inv_collection_id
+          and
+            role = 'secondary'
+        )
+      from
+        inv_nodes n,
+        inv_collections c
+      where exists (
+        select 1
+        from
+          inv_nodes_inv_objects inio
+        inner join inv_collections_inv_objects co
+          on co.inv_object_id = inio.inv_object_id
+        where
+          n.id=inio.inv_node_id
+        and
+          c.id=co.inv_collection_id
+      )
+      order by
+        n.number, c.id
+    }
+    run_query(
+      sql: sql,
+      params: {},
+      title: 'Storage Nodes',
+      headers: ['Node Number', 'Description', 'Collection Id', 'Collection Name', 'Total Obj', 'Primary', 'Secondary'],
+      types: ['', '', '', '', 'data', 'data', 'data']
     )
   end
 
