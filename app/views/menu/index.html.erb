@@ -4,10 +4,13 @@
 <ul>
   <li><%= link_to("Test", :controller => :query, :action => :test) %></li>
   <li><%= link_to("Large Objects", :controller => :query, :action => :large_object) %></li>
-  <li><%= link_to("Many Files", :controller => :query, :action => :many_files) %></li>
+  <li><%= link_to("Objects with Many Files", :controller => :query, :action => :many_files) %></li>
+  <li><%= link_to("Storage Nodes", :controller => :query, :action => :nodes) %></li>
   <li>Objects with many files</li>
   <li>Holdings by Owner</li>
   <li>Holdings by Collection</li>
+  <li><%= link_to("Mime Types", :controller => :query, :action => :mime_types) %></li>
+  <li><%= link_to("Mime Types by Collection", :controller => :query, :action => :coll_mime_types) %></li>
   <li>Mime Types by Owner</li>
   <li>Mime Types by Collection</li>
   <li>ARK's with Unicode</li>

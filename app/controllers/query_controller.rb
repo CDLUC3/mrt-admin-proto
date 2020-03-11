@@ -34,7 +34,7 @@ class QueryController < ApplicationController
       params: {},
       title: '10 Objects',
       headers: ['Object Id','Ark', 'Title', 'Version', 'Owner', 'File Count', 'Billable Size'],
-      types: ['cell', 'cell', 'cell', 'cell', 'owner', 'data', 'data']
+      types: ['', '', '', '', 'owner', 'data', 'data']
     )
   end
 
@@ -63,7 +63,7 @@ class QueryController < ApplicationController
       params: {},
       title: 'Large Objects',
       headers: ['Object Id','Ark', 'Owner', 'File Count', 'Billable Size'],
-      types: ['cell', 'cell', 'owner', 'data', 'data']
+      types: ['', '', 'owner', 'data', 'data']
     )
   end
 
@@ -92,7 +92,84 @@ class QueryController < ApplicationController
       params: {},
       title: 'Many Files',
       headers: ['Object Id', 'Ark', 'Owner', 'File Count', 'Billable Size'],
-      types: ['cell', 'cell', 'owner', 'data', 'data']
+      types: ['', '', 'owner', 'data', 'data']
+    )
+  end
+
+  def nodes
+    sql = %{
+      select
+        number,
+        description,
+        count(*)
+      from
+        inv_nodes n
+      inner join inv_nodes_inv_objects inio
+        on n.id=inio.inv_node_id
+      group by
+        number,
+        description
+      order by
+        count(*) desc;
+    }
+    run_query(
+      sql: sql,
+      params: {},
+      title: 'Storage Nodes',
+      headers: ['Node Number', 'Description', 'Object Count'],
+      types: ['', '', 'data']
+    )
+  end
+
+  def coll_mime_types
+    sql = %{
+      select
+        c.id,
+        c.name,
+        f.mime_type,
+        count(*),
+        sum(f.billable_size)
+      from
+        inv_collections c
+      inner join inv_collections_inv_objects co
+        on c.id = co.inv_collection_id
+      inner join inv_files f
+        on f.inv_object_id = co.inv_object_id
+      where
+        f.source = 'producer'
+      group by c.id, c.name, f.mime_type
+      order by c.id, count(*) desc;
+    }
+    run_query(
+      sql: sql,
+      params: {},
+      title: 'Storage Nodes',
+      headers: ['Collection Id', 'Collection Name', 'Mime Type', 'File Count', 'Billable Size'],
+      types: ['', '', '', 'data', 'data']
+    )
+  end
+
+  def mime_types
+    sql = %{
+      select
+        f.mime_type,
+        count(*),
+        sum(f.billable_size)
+      from
+        inv_files f
+      where
+        f.source = 'producer'
+      group by
+        f.mime_type
+      order by
+        count(*) desc;
+    }
+    run_query(
+      sql: sql,
+      params: {},
+      title: 'Storage Nodes',
+      headers: ['Mime Type', 'File Count', 'Billable Size'],
+      types: ['', 'data', 'data']
     )
   end
 

@@ -4,5 +4,8 @@ Rails.application.routes.draw do
   get 'query/test'
   get 'query/large_object'
   get 'query/many_files'
+  get 'query/nodes'
+  get 'query/mime_types'
+  get 'query/coll_mime_types'
   # For details on the DSL available within this file, see https://guides.rubyonrails.org/routing.html
 end
