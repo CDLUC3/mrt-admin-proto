@@ -24,11 +24,22 @@
       <%
       row.each_with_index do |col, c|
         cname = types[c]
-        if (cname == 'data')
-          col = number_with_delimiter(col, delimiter: ',')
-        end
       %>
-        <td class="cell <%= cname %>"><%= col %></td>
+        <td class="cell <%= cname %>">
+        <% if (cname == 'data') %>
+          <%= number_with_delimiter(col, delimiter: ',') %>
+        <% elsif (cname == 'node') %>
+          <%= link_to(col, :controller => :query, :action => :coll_nodes, :node => col) %>
+        <% elsif (cname == 'own') %>
+          <%= link_to(col, :controller => :query, :action => :owners_coll, :own => col) %>
+        <% elsif (cname == 'mime') %>
+          <%= link_to(col, :controller => :query, :action => :coll_mime_types, :mime => col) %>
+        <% elsif (cname == 'coll') %>
+          <%= link_to(col, :controller => :query, :action => :coll_details, :coll => col) %>
+        <% else %>
+          <%= col %>
+        <% end %>
+        </td>
       <%
       end
       %>
