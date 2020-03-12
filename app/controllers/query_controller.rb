@@ -8,7 +8,7 @@ class QueryController < ApplicationController
         o.erc_what,
         o.version_number,
         o.inv_owner_id,
-        own.name
+        own.name,
         (
           select
             count(f.id)
@@ -65,7 +65,7 @@ class QueryController < ApplicationController
     run_query(
       sql: sql,
       params: {},
-      title: 'Files with Non Ascii Path',
+      title: 'Files with Non Ascii Path (Max 500)',
       headers: ['File Path', 'Object Id', 'Ark', 'Collection Id', 'Collection Name'],
       types: ['', '', '', '', '']
     )
@@ -74,8 +74,8 @@ class QueryController < ApplicationController
   def owners
     sql = %{
       select
-        own.id,
-        own.name,
+        own.id as id,
+        own.name as name,
         (
           select
             count(o.id)
@@ -106,7 +106,33 @@ class QueryController < ApplicationController
         )
       from
         inv_owners own
-      order by own.id asc
+      union
+      select
+        0 as id,
+        '-- TOTAL --' as name,
+        (
+          select
+            count(o.id)
+          from
+            inv_objects o
+        ),
+        (
+          select
+            count(f.id)
+          from
+            inv_objects o
+          inner join inv_files f
+            on f.inv_object_id = o.id
+        ),
+        (
+          select
+            sum(f.billable_size)
+          from
+            inv_objects o
+          inner join inv_files f
+            on f.inv_object_id = o.id
+        )
+        order by id asc
     }
     run_query(
       sql: sql,
@@ -284,6 +310,32 @@ class QueryController < ApplicationController
         )
       from
         inv_nodes n
+      union
+      select
+        0,
+        '--TOTAL--',
+        (
+          select
+            count(*)
+          from
+            inv_nodes_inv_objects inio
+        ) as total,
+        (
+          select
+            count(*)
+          from
+            inv_nodes_inv_objects inio
+          where
+            role = 'primary'
+        ),
+        (
+          select
+            count(*)
+          from
+            inv_nodes_inv_objects inio
+          where
+            role = 'secondary'
+        )
       order by
         total desc;
     }
