@@ -42,6 +42,22 @@ class QueryController < ApplicationController
   end
 
   def files_non_ascii
+    subsql = %{
+      select
+        f.id
+      from
+        inv_files f
+      where
+        f.pathname <> CONVERT(f.pathname USING ASCII)
+      limit 20;
+    }
+
+    ids = run_subquery(sql: subsql)
+    qs = []
+    ids.each do|row|
+      qs.push('?')
+    end
+
     sql = %{
       select
         f.pathname,
@@ -58,14 +74,12 @@ class QueryController < ApplicationController
       inner join inv_collections c
         on c.id = co.inv_collection_id and o.id = co.inv_object_id
       where
-        f.pathname <> CONVERT(f.pathname USING ASCII)
-      order by f.pathname
-      limit 500;
+        f.id in (#{qs.join(',')})
     }
     run_query(
       sql: sql,
-      params: [],
-      title: 'Files with Non Ascii Path (Max 500)',
+      params: ids,
+      title: 'Files with Non Ascii Path (Max 20)',
       headers: ['File Path', 'Object Id', 'Ark', 'Collection Id', 'Collection Name'],
       types: ['', '', '', '', '']
     )
