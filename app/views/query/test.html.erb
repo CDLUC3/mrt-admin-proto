@@ -38,6 +38,8 @@
           <%= link_to(col, :controller => :query, :action => :coll_details, :coll => col) %>
         <% elsif (cname == 'ark') %>
           <%= link_to(col, arkLink(col)) %>
+        <% elsif (cname == 'mnemonic') %>
+          <%= link_to(col, collLink(col)) %>
         <% else %>
           <%= col %>
         <% end %>

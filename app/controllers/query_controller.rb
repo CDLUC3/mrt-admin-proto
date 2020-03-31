@@ -9,7 +9,7 @@ class QueryController < ApplicationController
         o.erc_what,
         o.version_number,
         c.id,
-        c.name,
+        c.mnemonic,
         (
           select
             count(f.id)
@@ -41,7 +41,7 @@ class QueryController < ApplicationController
       params: [ark],
       title: "Object(s) by Ark: #{ark}",
       headers: ['Object Id','Ark', 'Title', 'Version', 'Coll Id', 'Collection', 'File Count', 'Billable Size'],
-      types: ['', 'ark', '', '', 'coll', '', 'data', 'data']
+      types: ['', 'ark', '', '', 'coll', 'mnemonic', 'data', 'data']
     )
   end
 
@@ -54,7 +54,7 @@ class QueryController < ApplicationController
         o.erc_what,
         o.version_number,
         c.id,
-        c.name,
+        c.mnemonic,
         (
           select
             count(f.id)
@@ -86,7 +86,7 @@ class QueryController < ApplicationController
       params: [title],
       title: "Object(s) by Title: #{title}",
       headers: ['Object Id','Ark', 'Title', 'Version', 'Coll Id', 'Collection', 'File Count', 'Billable Size'],
-      types: ['', 'ark', '', '', 'coll', '', 'data', 'data']
+      types: ['', 'ark', '', '', 'coll', 'mnemonic', 'data', 'data']
     )
   end
 
@@ -99,7 +99,7 @@ class QueryController < ApplicationController
         o.erc_what,
         o.version_number,
         c.id,
-        c.name,
+        c.mnemonic,
         (
           select
             count(f.id)
@@ -131,7 +131,7 @@ class QueryController < ApplicationController
       params: [author],
       title: "Object(s) by Author: #{author}",
       headers: ['Object Id','Ark', 'Title', 'Version', 'Coll Id', 'Collection', 'File Count', 'Billable Size'],
-      types: ['', 'ark', '', '', 'coll', '', 'data', 'data']
+      types: ['', 'ark', '', '', 'coll', 'mnemonic', 'data', 'data']
     )
   end
 
@@ -158,7 +158,7 @@ class QueryController < ApplicationController
         o.id,
         o.ark,
         c.id,
-        c.name
+        c.mnemonic
       from
         inv_files f
       inner join inv_objects o
@@ -175,7 +175,7 @@ class QueryController < ApplicationController
       params: ids,
       title: 'Files with Non Ascii Path (Max 20)',
       headers: ['File Path', 'Object Id', 'Ark', 'Collection Id', 'Collection Name'],
-      types: ['', '', 'ark', '', '']
+      types: ['', '', 'ark', '', 'mnemonic']
     )
   end
 
@@ -201,12 +201,37 @@ class QueryController < ApplicationController
     )
   end
 
+  def collections
+    sql = %{
+      select
+        c.id,
+        c.mnemonic,
+        c.name,
+        count(o.id) total
+      from
+        inv_collections c
+      inner join inv_collections_inv_objects co
+        on c.id = co.inv_collection_id
+      inner join inv_objects o
+        on o.id = co.inv_object_id
+      group by c.id, c.mnemonic, c.name
+      order by c.id
+    }
+    run_query(
+      sql: sql,
+      params: [],
+      title: 'Counts by Collection',
+      headers: ['Collection Id', 'Mnemonic', 'Name', 'Object Count'],
+      types: ['coll', 'mnemonic', '', 'data']
+    )
+  end
+
   def owners_coll
     own = params[:own]
     sql = %{
       select
         c.id,
-        c.name,
+        c.mnemonic,
         count(co.inv_object_id)
       from
         inv_collections c
@@ -218,7 +243,7 @@ class QueryController < ApplicationController
           o.inv_owner_id = ?
       group by
         c.id,
-        c.name
+        c.mnemonic
       order by
         c.id
     }
@@ -227,7 +252,7 @@ class QueryController < ApplicationController
       params: [own],
       title: "Counts by Owner #{own}",
       headers: ['Collection Id', 'Collection Name', 'Object Count'],
-      types: ['coll', '', 'data']
+      types: ['coll', 'mnemonic', 'data']
     )
   end
 
@@ -254,7 +279,7 @@ class QueryController < ApplicationController
         o.id,
         o.ark,
         c.id,
-        c.name,
+        c.mnemonic,
         (select count(f.id) from inv_files f where f.inv_object_id = o.id),
         (select sum(f.billable_size) from inv_files f where f.inv_object_id = o.id)
       from
@@ -271,7 +296,7 @@ class QueryController < ApplicationController
       params: ids,
       title: '50 Large Objects (need to paginate)',
       headers: ['Object Id','Ark', 'Collection Id', 'Collection', 'File Count', 'Billable Size'],
-      types: ['', 'ark', '', '', 'data', 'data']
+      types: ['', 'ark', '', 'mnemonic', 'data', 'data']
     )
   end
 
@@ -298,7 +323,7 @@ class QueryController < ApplicationController
         o.id,
         o.ark,
         c.id,
-        c.name,
+        c.mnemonic,
         (select count(f.id) from inv_files f where f.inv_object_id = o.id),
         (select sum(f.billable_size) from inv_files f where f.inv_object_id = o.id)
       from
@@ -315,7 +340,7 @@ class QueryController < ApplicationController
       params: ids,
       title: 'Objects with Many Files (need to paginate)',
       headers: ['Object Id', 'Ark', 'Collection id', 'Collection', 'File Count', 'Billable Size'],
-      types: ['', 'ark', '', '', 'data', 'data']
+      types: ['', 'ark', '', 'mnemonic', 'data', 'data']
     )
   end
 
@@ -349,7 +374,7 @@ class QueryController < ApplicationController
     sql = %{
       select
         c.id,
-        c.name,
+        c.mnemonic,
         count(co.inv_object_id),
         sum(case when role ='primary' then 1 else 0 end),
         sum(case when role ='secondary' then 1 else 0 end)
@@ -365,7 +390,7 @@ class QueryController < ApplicationController
           n.number = ?
       group by
         c.id,
-        c.name
+        c.mnemonic
       order by
         c.id
     }
@@ -374,7 +399,7 @@ class QueryController < ApplicationController
       params: [node],
       title: "Storage Node #{node} Collections",
       headers: ['Collection Id', 'Collection Name', 'Total Obj', 'Primary', 'Secondary'],
-      types: ['coll', '', 'data', 'data', 'data']
+      types: ['coll', 'mnemonic', 'data', 'data', 'data']
     )
   end
 
@@ -404,7 +429,7 @@ class QueryController < ApplicationController
     sql = %{
       select
         c.id,
-        c.name,
+        c.mnemonic,
         count(*),
         sum(f.billable_size)
       from
@@ -415,7 +440,7 @@ class QueryController < ApplicationController
         on f.inv_object_id = co.inv_object_id
       where
         f.mime_type = ?
-      group by c.id, c.name
+      group by c.id, c.mnemonic
       order by c.id;
     }
     run_query(
@@ -423,7 +448,7 @@ class QueryController < ApplicationController
       params: [mime],
       title: 'Mime Types by Collection',
       headers: ['Collection Id', 'Collection Name', 'File Count', 'Billable Size'],
-      types: ['coll', '', 'data', 'data']
+      types: ['coll', 'mnemonic', 'data', 'data']
     )
   end
 

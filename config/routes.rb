@@ -11,6 +11,7 @@ Rails.application.routes.draw do
   get 'query/mime_types'
   get('query/coll_mime_types/:mime' => 'query#coll_mime_types')
   get 'query/owners'
+  get 'query/collections'
   get('query/owners_coll/:own' => 'query#owners_coll')
   get 'query/files_non_ascii'
   get('query/coll_details/:coll' => 'query#coll_details')
