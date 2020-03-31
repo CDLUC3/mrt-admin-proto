@@ -1,0 +1,12 @@
+default: &default
+  app_name: "Merritt Admin Prototype"
+  merritt_url: <%= ENV['MERRITT_URL'] %>
+
+development:
+  <<: *default
+
+test:
+  <<: *default
+
+stage:
+  <<: *default

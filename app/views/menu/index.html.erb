@@ -1,8 +1,32 @@
-<h1>Menu#index</h1>
-<p>Find me in app/views/menu/index.html.erb</p>
+<h1><%= APP_CONFIG['app_name'] %></h1>
 
 <ul>
-  <li><%= link_to("Test", :controller => :query, :action => :test) %></li>
+  <li>
+    Objects
+    <ul>
+      <li>
+        <% obj = url_for(controller: :query, action: :objects) %>
+        <form action="<%= obj %>" method="get">
+          Object(s) by Ark: <input name="ark" type="text" value="ark:/" size=40 />
+          <input type="submit" value="Go!"/>
+        </form>
+      </li>
+      <li>
+        <% obj = url_for(controller: :query, action: :objects_by_title) %>
+        <form action="<%= obj %>" method="get">
+          Object(s) by Title: <input name="title" type="text" value="" size=40 />
+          <input type="submit" value="Go!"/>
+        </form>
+      </li>
+      <li>
+        <% obj = url_for(controller: :query, action: :objects_by_author) %>
+        <form action="<%= obj %>" method="get">
+          Object(s) by Author: <input name="author" type="text" value="" size=40 />
+          <input type="submit" value="Go!"/>
+        </form>
+      </li>
+    </ul>
+  </li>
   <li><%= link_to("Large Objects", :controller => :query, :action => :large_object) %></li>
   <li><%= link_to("Objects with Many Files", :controller => :query, :action => :many_files) %></li>
   <li><%= link_to("Storage Nodes", :controller => :query, :action => :nodes) %></li>

@@ -1,14 +1,15 @@
 class QueryController < ApplicationController
 
-  def test
+  def objects
+    ark = "#{params['ark'].strip}%"
     sql = %{
       select
         o.id,
         o.ark,
         o.erc_what,
         o.version_number,
-        o.inv_owner_id,
-        own.name,
+        c.id,
+        c.name,
         (
           select
             count(f.id)
@@ -27,17 +28,110 @@ class QueryController < ApplicationController
         )
       from
         inv_objects o
-      inner join inv_owners own
-        on own.id = o.inv_owner_id
+      inner join inv_collections_inv_objects icio
+        on o.id = icio.inv_object_id
+      inner join inv_collections c
+        on icio.inv_collection_id = c.id
+      where o.ark like ?
       order by o.id asc
-      limit 10;
+      limit 20;
     }
     run_query(
       sql: sql,
-      params: [],
-      title: '10 Objects',
-      headers: ['Object Id','Ark', 'Title', 'Version', 'Owner Id', 'Owner', 'File Count', 'Billable Size'],
-      types: ['', '', '', '', 'owner', '', 'data', 'data']
+      params: [ark],
+      title: "Object(s) by Ark: #{ark}",
+      headers: ['Object Id','Ark', 'Title', 'Version', 'Coll Id', 'Collection', 'File Count', 'Billable Size'],
+      types: ['', 'ark', '', '', 'coll', '', 'data', 'data']
+    )
+  end
+
+  def objects_by_title
+    title = "%#{params['title'].strip}%"
+    sql = %{
+      select
+        o.id,
+        o.ark,
+        o.erc_what,
+        o.version_number,
+        c.id,
+        c.name,
+        (
+          select
+            count(f.id)
+          from
+            inv_files f
+          where
+            f.inv_object_id=o.id
+        ),
+        (
+          select
+            sum(f.billable_size)
+          from
+            inv_files f
+          where
+            f.inv_object_id=o.id
+        )
+      from
+        inv_objects o
+      inner join inv_collections_inv_objects icio
+        on icio.inv_object_id = o.id
+      inner join inv_collections c
+        on icio.inv_collection_id = c.id
+      where o.erc_what like ?
+      order by o.id asc
+      limit 20;
+    }
+    run_query(
+      sql: sql,
+      params: [title],
+      title: "Object(s) by Title: #{title}",
+      headers: ['Object Id','Ark', 'Title', 'Version', 'Coll Id', 'Collection', 'File Count', 'Billable Size'],
+      types: ['', 'ark', '', '', 'coll', '', 'data', 'data']
+    )
+  end
+
+  def objects_by_author
+    author = "%#{params['author'].strip}%"
+    sql = %{
+      select
+        o.id,
+        o.ark,
+        o.erc_what,
+        o.version_number,
+        c.id,
+        c.name,
+        (
+          select
+            count(f.id)
+          from
+            inv_files f
+          where
+            f.inv_object_id=o.id
+        ),
+        (
+          select
+            sum(f.billable_size)
+          from
+            inv_files f
+          where
+            f.inv_object_id=o.id
+        )
+      from
+        inv_objects o
+      inner join inv_collections_inv_objects icio
+        on icio.inv_object_id = o.id
+      inner join inv_collections c
+        on icio.inv_collection_id = c.id
+      where o.erc_who like ?
+      order by o.id asc
+      limit 20;
+    }
+    run_query(
+      sql: sql,
+      params: [author],
+      title: "Object(s) by Author: #{author}",
+      headers: ['Object Id','Ark', 'Title', 'Version', 'Coll Id', 'Collection', 'File Count', 'Billable Size'],
+      types: ['', 'ark', '', '', 'coll', '', 'data', 'data']
     )
   end
 
@@ -81,7 +175,7 @@ class QueryController < ApplicationController
       params: ids,
       title: 'Files with Non Ascii Path (Max 20)',
       headers: ['File Path', 'Object Id', 'Ark', 'Collection Id', 'Collection Name'],
-      types: ['', '', '', '', '']
+      types: ['', '', 'ark', '', '']
     )
   end
 
@@ -177,7 +271,7 @@ class QueryController < ApplicationController
       params: ids,
       title: '50 Large Objects (need to paginate)',
       headers: ['Object Id','Ark', 'Collection Id', 'Collection', 'File Count', 'Billable Size'],
-      types: ['', '', '', '', 'data', 'data']
+      types: ['', 'ark', '', '', 'data', 'data']
     )
   end
 
@@ -221,7 +315,7 @@ class QueryController < ApplicationController
       params: ids,
       title: 'Objects with Many Files (need to paginate)',
       headers: ['Object Id', 'Ark', 'Collection id', 'Collection', 'File Count', 'Billable Size'],
-      types: ['', '', '', '', 'data', 'data']
+      types: ['', 'ark', '', '', 'data', 'data']
     )
   end
 

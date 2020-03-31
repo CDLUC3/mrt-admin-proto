@@ -36,6 +36,8 @@
           <%= link_to(col, :controller => :query, :action => :coll_mime_types, :mime => col) %>
         <% elsif (cname == 'coll') %>
           <%= link_to(col, :controller => :query, :action => :coll_details, :coll => col) %>
+        <% elsif (cname == 'ark') %>
+          <%= link_to(col, arkLink(col)) %>
         <% else %>
           <%= col %>
         <% end %>
