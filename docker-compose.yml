@@ -18,6 +18,6 @@ services:
       source: ./config/database.yml
       target: /app/config/database.yml
     environment:
-      - MERRITT_URL: http://merritt-stage.cdlib.org
+      - MERRITT_URL: "http://merritt-stage.cdlib.org"
     stdin_open: true
     tty: true
