@@ -7,9 +7,16 @@
 
     <%= stylesheet_link_tag 'application', media: 'all', 'data-turbolinks-track': 'reload' %>
     <%= javascript_pack_tag 'application', 'data-turbolinks-track': 'reload' %>
+    <script src="/sorttable.js" type="text/javascript"></script>
   </head>
 
   <body>
     <%= yield %>
+    <!--
+      Find a better table sort solution.
+      This tool is old and must be placed at the bottom of the file to not break other js.
+      This tool has accessibility limitations.
+    -->
+    <script src="/sorttable.js" type="text/javascript"></script>
   </body>
 </html>

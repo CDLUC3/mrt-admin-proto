@@ -4,14 +4,21 @@
 <h2><%= data.length %> Results</h2>
 
 <div class="results">
-<table class="results">
+<table class="results sortable">
   <thead>
   <tr class="header">
     <%
-    headers.each do |header|
-    %>
-    <th><%= header %></th>
-    <%
+    headers.each_with_index do |header, c|
+      cname = types[c]
+      if cname == 'data'
+      %>
+          <th class="sorttable_numeric"><%= header %></th>
+      <%
+      else
+      %>
+          <th><%= header %></th>
+      <%
+      end
     end
     %>
   </tr>
