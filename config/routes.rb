@@ -1,6 +1,7 @@
 Rails.application.routes.draw do
   get '', to: redirect('/menu/index')
   get 'menu/index'
+  get 'menu/test'
   get('query/objects' => 'query#objects')
   get('query/objects_by_title' => 'query#objects_by_title')
   get('query/objects_by_author' => 'query#objects_by_author')

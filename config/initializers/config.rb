@@ -11,3 +11,4 @@ def load_config(name)
 end
 
 APP_CONFIG = load_config('app_config.yml')
+LDAP_CONFIG = load_config('ldap.yml')
