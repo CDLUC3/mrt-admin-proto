@@ -5,6 +5,7 @@ Rails.application.routes.draw do
   get('query/objects_by_title' => 'query#objects_by_title')
   get('query/objects_by_author' => 'query#objects_by_author')
   get('query/objects_by_file' => 'query#objects_by_file')
+  get('query/objects_by_file_coll' => 'query#objects_by_file_coll')
   get 'query/large_object'
   get 'query/many_files'
   get 'query/nodes'

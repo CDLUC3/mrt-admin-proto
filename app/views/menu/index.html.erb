@@ -26,10 +26,17 @@
         </form>
       </li>
       <li>
+        <% obj = url_for(controller: :query, action: :objects_by_file_coll) %>
+        <form action="<%= obj %>" method="get">
+          Object(s) by Filename: <input name="file" type="text" value="" size=60 />
+          Collection: <input name="coll" type="text" value="cdl_uc3" size=40 />
+          <input type="submit" value="Go!"/>
+        </form>
+      </li>
+      <li>
         <% obj = url_for(controller: :query, action: :objects_by_file) %>
         <form action="<%= obj %>" method="get">
-          Object(s) by Filename: <input name="file" type="text" value="" size=40 />
-          Collection: <input name="coll" type="text" value="cdl_uc3" size=40 />
+          Object(s) by Filename: <input name="file" type="text" value="" size=60 />
           <input type="submit" value="Go!"/>
         </form>
       </li>

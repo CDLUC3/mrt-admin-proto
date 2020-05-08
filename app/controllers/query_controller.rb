@@ -135,9 +135,9 @@ class QueryController < ApplicationController
     )
   end
 
-  def objects_by_file
+  def objects_by_file_coll
     file = "producer/#{params['file'].strip}"
-    coll = params['coll']
+    coll = params['coll'].strip
     sql = %{
       select
         o.id,
@@ -180,6 +180,54 @@ class QueryController < ApplicationController
       sql: sql,
       params: [file, coll],
       title: "Object(s) by Filename: #{file} in #{coll}",
+      headers: ['Object Id','Ark', 'Title', 'Version', 'Coll Id', 'Collection', 'File Count', 'Billable Size'],
+      types: ['', 'ark', '', '', 'coll', 'mnemonic', 'data', 'data']
+    )
+  end
+
+  def objects_by_file
+    file = "producer/#{params['file'].strip}"
+    sql = %{
+      select
+        o.id,
+        o.ark,
+        o.erc_what,
+        o.version_number,
+        c.id,
+        c.mnemonic,
+        (
+          select
+            count(f.id)
+          from
+            inv_files f
+          where
+            f.inv_object_id=o.id
+        ),
+        (
+          select
+            sum(f.billable_size)
+          from
+            inv_files f
+          where
+            f.inv_object_id=o.id
+        )
+      from
+        inv_objects o
+      inner join inv_collections_inv_objects icio
+        on icio.inv_object_id = o.id
+      inner join inv_collections c
+        on icio.inv_collection_id = c.id
+      inner join inv_files f
+        on f.inv_object_id = o.id
+      where f.pathname = ?
+        and source = 'producer'
+      order by o.id asc
+      limit 50;
+    }
+    run_query(
+      sql: sql,
+      params: [file],
+      title: "Object(s) by Filename: #{file}",
       headers: ['Object Id','Ark', 'Title', 'Version', 'Coll Id', 'Collection', 'File Count', 'Billable Size'],
       types: ['', 'ark', '', '', 'coll', 'mnemonic', 'data', 'data']
     )
