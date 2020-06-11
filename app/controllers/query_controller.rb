@@ -14,7 +14,7 @@ class QueryController < ApplicationController
           select
             count(f.id)
           from
-            inv_files f
+            inv.inv_files f
           where
             f.inv_object_id=o.id
         ),
@@ -22,15 +22,15 @@ class QueryController < ApplicationController
           select
             sum(f.billable_size)
           from
-            inv_files f
+            inv.inv_files f
           where
             f.inv_object_id=o.id
         )
       from
-        inv_objects o
-      inner join inv_collections_inv_objects icio
+        inv.inv_objects o
+      inner join inv.inv_collections_inv_objects icio
         on o.id = icio.inv_object_id
-      inner join inv_collections c
+      inner join inv.inv_collections c
         on icio.inv_collection_id = c.id
       where o.ark like ?
       order by o.id asc
@@ -59,7 +59,7 @@ class QueryController < ApplicationController
           select
             count(f.id)
           from
-            inv_files f
+            inv.inv_files f
           where
             f.inv_object_id=o.id
         ),
@@ -67,15 +67,15 @@ class QueryController < ApplicationController
           select
             sum(f.billable_size)
           from
-            inv_files f
+            inv.inv_files f
           where
             f.inv_object_id=o.id
         )
       from
-        inv_objects o
-      inner join inv_collections_inv_objects icio
+        inv.inv_objects o
+      inner join inv.inv_collections_inv_objects icio
         on icio.inv_object_id = o.id
-      inner join inv_collections c
+      inner join inv.inv_collections c
         on icio.inv_collection_id = c.id
       where o.erc_what like ?
       order by o.id asc
@@ -104,7 +104,7 @@ class QueryController < ApplicationController
           select
             count(f.id)
           from
-            inv_files f
+            inv.inv_files f
           where
             f.inv_object_id=o.id
         ),
@@ -112,15 +112,15 @@ class QueryController < ApplicationController
           select
             sum(f.billable_size)
           from
-            inv_files f
+            inv.inv_files f
           where
             f.inv_object_id=o.id
         )
       from
-        inv_objects o
-      inner join inv_collections_inv_objects icio
+        inv.inv_objects o
+      inner join inv.inv_collections_inv_objects icio
         on icio.inv_object_id = o.id
-      inner join inv_collections c
+      inner join inv.inv_collections c
         on icio.inv_collection_id = c.id
       where o.erc_who like ?
       order by o.id asc
@@ -150,7 +150,7 @@ class QueryController < ApplicationController
           select
             count(f.id)
           from
-            inv_files f
+            inv.inv_files f
           where
             f.inv_object_id=o.id
         ),
@@ -158,17 +158,17 @@ class QueryController < ApplicationController
           select
             sum(f.billable_size)
           from
-            inv_files f
+            inv.inv_files f
           where
             f.inv_object_id=o.id
         )
       from
-        inv_objects o
-      inner join inv_collections_inv_objects icio
+        inv.inv_objects o
+      inner join inv.inv_collections_inv_objects icio
         on icio.inv_object_id = o.id
-      inner join inv_collections c
+      inner join inv.inv_collections c
         on icio.inv_collection_id = c.id
-      inner join inv_files f
+      inner join inv.inv_files f
         on f.inv_object_id = o.id
       where f.pathname = ?
         and source = 'producer'
@@ -199,7 +199,7 @@ class QueryController < ApplicationController
           select
             count(f.id)
           from
-            inv_files f
+            inv.inv_files f
           where
             f.inv_object_id=o.id
         ),
@@ -207,17 +207,17 @@ class QueryController < ApplicationController
           select
             sum(f.billable_size)
           from
-            inv_files f
+            inv.inv_files f
           where
             f.inv_object_id=o.id
         )
       from
-        inv_objects o
-      inner join inv_collections_inv_objects icio
+        inv.inv_objects o
+      inner join inv.inv_collections_inv_objects icio
         on icio.inv_object_id = o.id
-      inner join inv_collections c
+      inner join inv.inv_collections c
         on icio.inv_collection_id = c.id
-      inner join inv_files f
+      inner join inv.inv_files f
         on f.inv_object_id = o.id
       where f.pathname = ?
         and source = 'producer'
@@ -238,7 +238,7 @@ class QueryController < ApplicationController
       select
         f.id
       from
-        inv_files f
+        inv.inv_files f
       where
         f.pathname <> CONVERT(f.pathname USING ASCII)
       limit 20;
@@ -258,12 +258,12 @@ class QueryController < ApplicationController
         c.id,
         c.mnemonic
       from
-        inv_files f
-      inner join inv_objects o
+        inv.inv_files f
+      inner join inv.inv_objects o
         on f.inv_object_id = o.id
-      inner join inv_collections_inv_objects co
+      inner join inv.inv_collections_inv_objects co
         on co.inv_object_id = o.id
-      inner join inv_collections c
+      inner join inv.inv_collections c
         on c.id = co.inv_collection_id and o.id = co.inv_object_id
       where
         f.id in (#{qs.join(',')})
@@ -284,8 +284,8 @@ class QueryController < ApplicationController
         own.name as name,
         count(o.id) total
       from
-        inv_objects o
-      inner join inv_owners own
+        inv.inv_objects o
+      inner join inv.inv_owners own
         on o.inv_owner_id = own.id
       group by o.inv_owner_id, own.name
       order by o.inv_owner_id
@@ -307,10 +307,10 @@ class QueryController < ApplicationController
         c.name,
         count(o.id) total
       from
-        inv_collections c
-      inner join inv_collections_inv_objects co
+        inv.inv_collections c
+      inner join inv.inv_collections_inv_objects co
         on c.id = co.inv_collection_id
-      inner join inv_objects o
+      inner join inv.inv_objects o
         on o.id = co.inv_object_id
       group by c.id, c.mnemonic, c.name
       order by c.id
@@ -332,13 +332,13 @@ class QueryController < ApplicationController
         c.mnemonic,
         count(co.inv_object_id)
       from
-        inv_collections c
-        inner join inv_collections_inv_objects co
-          on c.id = co.inv_collection_id
-        inner join inv_objects o
-          on o.id = co.inv_object_id
-        where
-          o.inv_owner_id = ?
+        inv.inv_collections c
+      inner join inv.inv_collections_inv_objects co
+        on c.id = co.inv_collection_id
+      inner join inv.inv_objects o
+        on o.id = co.inv_object_id
+      where
+        o.inv_owner_id = ?
       group by
         c.id,
         c.mnemonic
@@ -359,7 +359,7 @@ class QueryController < ApplicationController
       select
         f.inv_object_id
       from
-        inv_files f
+        inv.inv_files f
       group by
         f.inv_object_id
       having
@@ -378,13 +378,13 @@ class QueryController < ApplicationController
         o.ark,
         c.id,
         c.mnemonic,
-        (select count(f.id) from inv_files f where f.inv_object_id = o.id),
-        (select sum(f.billable_size) from inv_files f where f.inv_object_id = o.id)
+        (select count(f.id) from inv.inv_files f where f.inv_object_id = o.id),
+        (select sum(f.billable_size) from inv.inv_files f where f.inv_object_id = o.id)
       from
-        inv_objects o
-      inner join inv_collections_inv_objects icio
+        inv.inv_objects o
+      inner join inv.inv_collections_inv_objects icio
         on icio.inv_object_id = o.id
-      inner join inv_collections c
+      inner join inv.inv_collections c
         on c.id = icio.inv_collection_id
       where
         o.id in (#{qs.join(',')});
@@ -403,7 +403,7 @@ class QueryController < ApplicationController
       select
         f.inv_object_id
       from
-        inv_files f
+        inv.inv_files f
       group by
         f.inv_object_id
       having
@@ -422,13 +422,13 @@ class QueryController < ApplicationController
         o.ark,
         c.id,
         c.mnemonic,
-        (select count(f.id) from inv_files f where f.inv_object_id = o.id),
-        (select sum(f.billable_size) from inv_files f where f.inv_object_id = o.id)
+        (select count(f.id) from inv.inv_files f where f.inv_object_id = o.id),
+        (select sum(f.billable_size) from inv.inv_files f where f.inv_object_id = o.id)
       from
-        inv_objects o
-      inner join inv_collections_inv_objects icio
+        inv.inv_objects o
+      inner join inv.inv_collections_inv_objects icio
         on icio.inv_object_id = o.id
-      inner join inv_collections c
+      inner join inv.inv_collections c
         on c.id = icio.inv_collection_id
       where
         o.id in (#{qs.join(',')});
@@ -451,8 +451,8 @@ class QueryController < ApplicationController
         sum(case when role ='primary' then 1 else 0 end),
         sum(case when role ='secondary' then 1 else 0 end)
       from
-        inv_nodes n
-      inner join inv_nodes_inv_objects inio
+        inv.inv_nodes n
+      inner join inv.inv_nodes_inv_objects inio
         on n.id = inio.inv_node_id
       group by number, description
       order by
@@ -477,12 +477,12 @@ class QueryController < ApplicationController
         sum(case when role ='primary' then 1 else 0 end),
         sum(case when role ='secondary' then 1 else 0 end)
       from
-        inv_collections c
-        inner join inv_collections_inv_objects co
+        inv.inv_collections c
+        inner join inv.inv_collections_inv_objects co
           on c.id = co.inv_collection_id
-        inner join inv_nodes_inv_objects inio
+        inner join inv.inv_nodes_inv_objects inio
           on co.inv_object_id = inio.inv_object_id
-        inner join inv_nodes n
+        inner join inv.inv_nodes n
           on n.id = inio.inv_node_id
         where
           n.number = ?
@@ -507,7 +507,7 @@ class QueryController < ApplicationController
         f.mime_type,
         count(*)
       from
-        inv_files f
+        inv.inv_files f
       group by
         f.mime_type
       order by
@@ -522,6 +522,40 @@ class QueryController < ApplicationController
     )
   end
 
+  def mime_groups
+    sql = %{
+      select
+         mime_group as g,
+         mime_type as t,
+         sum(count)
+       from
+         mime_use
+       group by
+         g,
+         t
+       union
+       select
+         distinct mime_group as g,
+         '' as t,
+         sum(count)
+       from
+         mime_use
+       group by
+         g,
+         t
+       order by
+         g,
+         t;
+    }
+    run_query(
+      sql: sql,
+      params: [],
+      title: 'Mime Groups (Producer and System)',
+      headers: ['Mime Group', 'Mime Type', 'File Count'],
+      types: ['mime-group', 'mime', 'data']
+    )
+  end
+
   def coll_mime_types
     mime = params[:mime]
     sql = %{
@@ -531,10 +565,10 @@ class QueryController < ApplicationController
         count(*),
         sum(f.billable_size)
       from
-        inv_collections c
-      inner join inv_collections_inv_objects co
+        inv.inv_collections c
+      inner join inv.inv_collections_inv_objects co
         on c.id = co.inv_collection_id
-      inner join inv_files f
+      inner join inv.inv_files f
         on f.inv_object_id = co.inv_object_id
       where
         f.mime_type = ?
@@ -558,10 +592,10 @@ class QueryController < ApplicationController
         count(*),
         sum(f.billable_size)
       from
-        inv_collections c
-      inner join inv_collections_inv_objects co
+        inv.inv_collections c
+      inner join inv.inv_collections_inv_objects co
         on c.id = co.inv_collection_id
-      inner join inv_files f
+      inner join inv.inv_files f
         on f.inv_object_id = co.inv_object_id
       where
         co.inv_collection_id = ?

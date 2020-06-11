@@ -11,6 +11,7 @@ Rails.application.routes.draw do
   get 'query/nodes'
   get('query/coll_nodes/:node' => 'query#coll_nodes')
   get 'query/mime_types'
+  get 'query/mime_groups'
   get('query/coll_mime_types/:mime' => 'query#coll_mime_types')
   get 'query/owners'
   get 'query/collections'
