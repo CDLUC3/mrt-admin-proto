@@ -280,22 +280,76 @@ class QueryController < ApplicationController
   def owners
     sql = %{
       select
-        o.inv_owner_id,
-        own.name as name,
-        count(o.id) total
+        CASE
+          WHEN own.name REGEXP '^(CDL|UC3)' THEN 'CDL'
+          WHEN own.name REGEXP '(^UCB |Berkeley)' THEN 'UCB'
+          WHEN own.name REGEXP '(^UCD)' THEN 'UCD'
+          WHEN own.name REGEXP '(^UCLA)' THEN 'UCLA'
+          WHEN own.name REGEXP '(^UCSB)' THEN 'UCSB'
+          WHEN own.name REGEXP '(^UCI)' THEN 'UCI'
+          WHEN own.name REGEXP '(^UCM)' THEN 'UCM'
+          WHEN own.name REGEXP '(^UCR)' THEN 'UCR'
+          WHEN own.name REGEXP '(^UCSC)' THEN 'UCSC'
+          WHEN own.name REGEXP '(^UCSD)' THEN 'UCSD'
+          WHEN own.name REGEXP '(^UCSF)' THEN 'UCSF'
+          ELSE 'Other'
+        END as ogroup,
+        own.id as own_id,
+        CASE
+          WHEN own.name = '' THEN '(No name specified)'
+          WHEN own.name is null THEN '(No name specified)'
+          ELSE own.name
+        END as own_name,
+        sum(dmud.count_objects) objects,
+        sum(dmud.count_files) files,
+        sum(dmud.billable_size) size
       from
-        inv.inv_objects o
-      inner join inv.inv_owners own
-        on o.inv_owner_id = own.id
-      group by o.inv_owner_id, own.name
-      order by o.inv_owner_id
+        inv.inv_owners own
+      inner join daily_mime_use_details dmud
+        on dmud.inv_owner_id = own.id
+      group by
+        ogroup,
+        own_id,
+        own_name
+      union
+      select
+        CASE
+          WHEN own.name REGEXP '^(CDL|UC3)' THEN 'CDL'
+          WHEN own.name REGEXP '(^UCB |Berkeley)' THEN 'UCB'
+          WHEN own.name REGEXP '(^UCD)' THEN 'UCD'
+          WHEN own.name REGEXP '(^UCLA)' THEN 'UCLA'
+          WHEN own.name REGEXP '(^UCSB)' THEN 'UCSB'
+          WHEN own.name REGEXP '(^UCI)' THEN 'UCI'
+          WHEN own.name REGEXP '(^UCM)' THEN 'UCM'
+          WHEN own.name REGEXP '(^UCR)' THEN 'UCR'
+          WHEN own.name REGEXP '(^UCSC)' THEN 'UCSC'
+          WHEN own.name REGEXP '(^UCSD)' THEN 'UCSD'
+          WHEN own.name REGEXP '(^UCSF)' THEN 'UCSF'
+          ELSE 'Other'
+        END as ogroup,
+        0 as own_id,
+        '-- Total --' as own_name,
+        sum(dmud.count_objects) objects,
+        sum(dmud.count_files) files,
+        sum(dmud.billable_size) size
+      from
+        inv.inv_owners own
+      inner join daily_mime_use_details dmud
+        on dmud.inv_owner_id = own.id
+      group by
+        ogroup,
+        own_id,
+        own_name
+      order by
+        ogroup,
+        own_name
     }
     run_query(
       sql: sql,
       params: [],
       title: 'Counts by Owner',
-      headers: ['Owner Id','Owner', 'Object Count'],
-      types: ['own', '', 'dataint']
+      headers: ['Group', 'Owner Id','Owner', 'Object Count', 'File Count', 'Billable Size'],
+      types: ['', 'own', '', 'dataint', 'dataint', 'dataint']
     )
   end
 
@@ -305,13 +359,13 @@ class QueryController < ApplicationController
         c.id,
         c.mnemonic,
         c.name,
-        count(o.id) total
+        sum(dmud.count_objects) objects,
+        sum(dmud.count_files) files,
+        sum(dmud.billable_size) size
       from
         inv.inv_collections c
-      inner join inv.inv_collections_inv_objects co
-        on c.id = co.inv_collection_id
-      inner join inv.inv_objects o
-        on o.id = co.inv_object_id
+      inner join daily_mime_use_details dmud
+        on dmud.inv_collection_id = c.id
       group by c.id, c.mnemonic, c.name
       order by c.id
     }
@@ -319,8 +373,8 @@ class QueryController < ApplicationController
       sql: sql,
       params: [],
       title: 'Counts by Collection',
-      headers: ['Collection Id', 'Mnemonic', 'Name', 'Object Count'],
-      types: ['coll', 'mnemonic', '', 'dataint']
+      headers: ['Collection Id', 'Mnemonic', 'Name', 'Object Count', 'File Count', 'Billable Size'],
+      types: ['coll', 'mnemonic', '', 'dataint', 'dataint', 'dataint']
     )
   end
 
