@@ -41,7 +41,7 @@ class QueryController < ApplicationController
       params: [ark],
       title: "Object(s) by Ark: #{ark}",
       headers: ['Object Id','Ark', 'Title', 'Version', 'Coll Id', 'Collection', 'File Count', 'Billable Size'],
-      types: ['', 'ark', '', '', 'coll', 'mnemonic', 'data', 'data']
+      types: ['', 'ark', '', '', 'coll', 'mnemonic', 'dataint', 'dataint']
     )
   end
 
@@ -86,7 +86,7 @@ class QueryController < ApplicationController
       params: [title],
       title: "Object(s) by Title: #{title}",
       headers: ['Object Id','Ark', 'Title', 'Version', 'Coll Id', 'Collection', 'File Count', 'Billable Size'],
-      types: ['', 'ark', '', '', 'coll', 'mnemonic', 'data', 'data']
+      types: ['', 'ark', '', '', 'coll', 'mnemonic', 'dataint', 'dataint']
     )
   end
 
@@ -131,7 +131,7 @@ class QueryController < ApplicationController
       params: [author],
       title: "Object(s) by Author: #{author}",
       headers: ['Object Id','Ark', 'Title', 'Version', 'Coll Id', 'Collection', 'File Count', 'Billable Size'],
-      types: ['', 'ark', '', '', 'coll', 'mnemonic', 'data', 'data']
+      types: ['', 'ark', '', '', 'coll', 'mnemonic', 'dataint', 'dataint']
     )
   end
 
@@ -181,7 +181,7 @@ class QueryController < ApplicationController
       params: [file, coll],
       title: "Object(s) by Filename: #{file} in #{coll}",
       headers: ['Object Id','Ark', 'Title', 'Version', 'Coll Id', 'Collection', 'File Count', 'Billable Size'],
-      types: ['', 'ark', '', '', 'coll', 'mnemonic', 'data', 'data']
+      types: ['', 'ark', '', '', 'coll', 'mnemonic', 'dataint', 'dataint']
     )
   end
 
@@ -229,7 +229,7 @@ class QueryController < ApplicationController
       params: [file],
       title: "Object(s) by Filename: #{file}",
       headers: ['Object Id','Ark', 'Title', 'Version', 'Coll Id', 'Collection', 'File Count', 'Billable Size'],
-      types: ['', 'ark', '', '', 'coll', 'mnemonic', 'data', 'data']
+      types: ['', 'ark', '', '', 'coll', 'mnemonic', 'dataint', 'dataint']
     )
   end
 
@@ -295,7 +295,7 @@ class QueryController < ApplicationController
       params: [],
       title: 'Counts by Owner',
       headers: ['Owner Id','Owner', 'Object Count'],
-      types: ['own', '', 'data']
+      types: ['own', '', 'dataint']
     )
   end
 
@@ -320,7 +320,7 @@ class QueryController < ApplicationController
       params: [],
       title: 'Counts by Collection',
       headers: ['Collection Id', 'Mnemonic', 'Name', 'Object Count'],
-      types: ['coll', 'mnemonic', '', 'data']
+      types: ['coll', 'mnemonic', '', 'dataint']
     )
   end
 
@@ -350,7 +350,7 @@ class QueryController < ApplicationController
       params: [own],
       title: "Counts by Owner #{own}",
       headers: ['Collection Id', 'Collection Name', 'Object Count'],
-      types: ['coll', 'mnemonic', 'data']
+      types: ['coll', 'mnemonic', 'dataint']
     )
   end
 
@@ -394,7 +394,7 @@ class QueryController < ApplicationController
       params: ids,
       title: '50 Large Objects (need to paginate)',
       headers: ['Object Id','Ark', 'Collection Id', 'Collection', 'File Count', 'Billable Size'],
-      types: ['', 'ark', '', 'mnemonic', 'data', 'data']
+      types: ['', 'ark', '', 'mnemonic', 'dataint', 'dataint']
     )
   end
 
@@ -438,7 +438,7 @@ class QueryController < ApplicationController
       params: ids,
       title: 'Objects with Many Files (need to paginate)',
       headers: ['Object Id', 'Ark', 'Collection id', 'Collection', 'File Count', 'Billable Size'],
-      types: ['', 'ark', '', 'mnemonic', 'data', 'data']
+      types: ['', 'ark', '', 'mnemonic', 'dataint', 'dataint']
     )
   end
 
@@ -463,7 +463,7 @@ class QueryController < ApplicationController
       params: [],
       title: 'Storage Nodes',
       headers: ['Node Number', 'Description', 'Total Obj', 'Primary', 'Secondary'],
-      types: ['node', '', 'data', 'data', 'data']
+      types: ['node', '', 'dataint', 'dataint', 'dataint']
     )
   end
 
@@ -497,7 +497,7 @@ class QueryController < ApplicationController
       params: [node],
       title: "Storage Node #{node} Collections",
       headers: ['Collection Id', 'Collection Name', 'Total Obj', 'Primary', 'Secondary'],
-      types: ['coll', 'mnemonic', 'data', 'data', 'data']
+      types: ['coll', 'mnemonic', 'dataint', 'dataint', 'dataint']
     )
   end
 
@@ -518,7 +518,7 @@ class QueryController < ApplicationController
       params: [],
       title: 'Mime Types (Producer and System)',
       headers: ['Mime Type', 'File Count'],
-      types: ['mime', 'data']
+      types: ['mime', 'dataint']
     )
   end
 
@@ -552,7 +552,7 @@ class QueryController < ApplicationController
       params: [],
       title: 'Mime Groups (Producer and System)',
       headers: ['Mime Group', 'Mime Type', 'File Count'],
-      types: ['mime-group', 'mime', 'data']
+      types: ['mime-group', 'mime', 'dataint']
     )
   end
 
@@ -580,7 +580,7 @@ class QueryController < ApplicationController
       params: [mime],
       title: 'Mime Types by Collection',
       headers: ['Collection Id', 'Collection Name', 'File Count', 'Billable Size'],
-      types: ['coll', 'mnemonic', 'data', 'data']
+      types: ['coll', 'mnemonic', 'dataint', 'dataint']
     )
   end
 
@@ -606,7 +606,7 @@ class QueryController < ApplicationController
       params: [coll],
       title: "Collection Details for #{coll}",
       headers: ['Mime Type', 'File Count', 'Billable Size'],
-      types: ['', 'data', 'data']
+      types: ['', 'data', 'dataint']
     )
   end
 

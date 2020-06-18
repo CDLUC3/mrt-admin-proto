@@ -34,7 +34,9 @@ table.results td {
 }
 
 table.results th.data,
-table.results td.data {
+table.results td.data,
+table.results th.dataint,
+table.results td.dataint {
   text-align: right;
 }
 

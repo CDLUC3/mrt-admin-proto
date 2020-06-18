@@ -10,7 +10,7 @@
     <%
     headers.each_with_index do |header, c|
       cname = types[c]
-      if cname == 'data'
+      if cname == 'data' || cname == 'dataint'
       %>
           <th class="sorttable_numeric"><%= header %></th>
       <%
@@ -35,6 +35,10 @@
         <td class="cell <%= cname %>">
         <% if (cname == 'data') %>
           <%= number_with_delimiter(col, delimiter: ',') %>
+        <% elsif (cname == 'dataint') %>
+          <%= number_with_delimiter(number_with_precision(col, precision: 0), delimiter: ',') %>
+        <% elsif (cname == 'datasize') %>
+          <%= number_to_human_size(col) %>
         <% elsif (cname == 'node') %>
           <%= link_to(col, :controller => :query, :action => :coll_nodes, :node => col) %>
         <% elsif (cname == 'own') %>
