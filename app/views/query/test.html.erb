@@ -47,6 +47,8 @@
           <%= link_to(col, :controller => :query, :action => :owners_coll, :own => col) %>
         <% elsif (cname == 'mime') and not(/^--/.match?(col)) %>
           <%= link_to(col, :controller => :query, :action => :coll_mime_types, :mime => col) %>
+        <% elsif (cname == 'gmime') and col != '' %>
+          <%= link_to(col, :controller => :query, :action => :coll_mime_groups, :gmime => col) %>
         <% elsif (cname == 'coll' and col > 0) %>
           <%= link_to(col, :controller => :query, :action => :coll_details, :coll => col) %>
         <% elsif (cname == 'ogroup' and col != 'ZZZ') %>

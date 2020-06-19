@@ -698,7 +698,7 @@ class QueryController < ApplicationController
       params: [],
       title: 'Mime Groups (Producer Files)',
       headers: ['Mime Group', 'Mime Type', 'File Count', 'Billable Size'],
-      types: ['mime-group', 'mime', 'dataint', 'dataint'],
+      types: ['gmime', 'mime', 'dataint', 'dataint'],
       filterCol: 1
     )
   end
@@ -707,27 +707,81 @@ class QueryController < ApplicationController
     mime = params[:mime]
     sql = %{
       select
-        c.id,
-        c.mnemonic,
-        count(*),
-        sum(f.billable_size)
+        ogroup,
+        inv_collection_id,
+        mnemonic,
+        collection_name,
+        sum(count_objects),
+        sum(count_files),
+        sum(billable_size)
       from
-        inv.inv_collections c
-      inner join inv.inv_collections_inv_objects co
-        on c.id = co.inv_collection_id
-      inner join inv.inv_files f
-        on f.inv_object_id = co.inv_object_id
+        owner_coll_mime_use_details
       where
-        f.mime_type = ?
-      group by c.id, c.mnemonic
-      order by c.id;
+        mime_type = ?
+      group by ogroup, inv_collection_id, mnemonic, collection_name
+      union
+      select
+        max('ZZ'),
+        max(0),
+        max(''),
+        max('-- Total --'),
+        sum(count_objects),
+        sum(count_files),
+        sum(billable_size)
+      from
+        owner_coll_mime_use_details
+      where
+        mime_type = ?
+      order by ogroup, collection_name;
     }
     run_query(
       sql: sql,
-      params: [mime],
-      title: 'Mime Types by Collection',
-      headers: ['Collection Id', 'Collection Name', 'File Count', 'Billable Size'],
-      types: ['coll', 'mnemonic', 'dataint', 'dataint']
+      params: [mime, mime],
+      title: "Collection distribution for mime type #{mime}",
+      headers: ['Group', 'Collection Id', 'Mnemonic', 'Collection Name', 'Object Count', 'File Count', 'Billable Size'],
+      types: ['ogroup', 'coll', 'mnemonic', 'name', 'dataint', 'dataint', 'dataint'],
+      filterCol: 3
+    )
+  end
+
+  def coll_mime_groups
+    gmime = params[:gmime]
+    sql = %{
+      select
+        ogroup,
+        inv_collection_id,
+        mnemonic,
+        collection_name,
+        sum(count_objects),
+        sum(count_files),
+        sum(billable_size)
+      from
+        owner_coll_mime_use_details
+      where
+        mime_group = ?
+      group by ogroup, inv_collection_id, mnemonic, collection_name
+      union
+      select
+        max('ZZ'),
+        max(0),
+        max(''),
+        max('-- Total --'),
+        sum(count_objects),
+        sum(count_files),
+        sum(billable_size)
+      from
+        owner_coll_mime_use_details
+      where
+        mime_group = ?
+      order by ogroup, collection_name;
+    }
+    run_query(
+      sql: sql,
+      params: [gmime, gmime],
+      title: "Collection distribution for mime group #{gmime}",
+      headers: ['Group', 'Collection Id', 'Mnemonic', 'Collection Name', 'Object Count', 'File Count', 'Billable Size'],
+      types: ['ogroup', 'coll', 'mnemonic', 'name', 'dataint', 'dataint', 'dataint'],
+      filterCol: 3
     )
   end
 
@@ -795,7 +849,7 @@ class QueryController < ApplicationController
       params: [coll, coll, coll, coll],
       title: "Collection Details for #{coll}",
       headers: ['Mime Group', 'Mime Type', 'Object Count', 'File Count', 'Billable Size'],
-      types: ['', 'mime', 'dataint', 'dataint', 'dataint'],
+      types: ['gmime', 'mime', 'dataint', 'dataint', 'dataint'],
       filterCol: 1
     )
   end
@@ -864,7 +918,7 @@ class QueryController < ApplicationController
       params: [ogroup, ogroup, ogroup, ogroup],
       title: "Collection Details for #{ogroup}",
       headers: ['Mime Group', 'Mime Type', 'Object Count', 'File Count', 'Billable Size'],
-      types: ['', 'mime', 'dataint', 'dataint', 'dataint'],
+      types: ['gmime', 'mime', 'dataint', 'dataint', 'dataint'],
       filterCol: 1
     )
   end
