@@ -7,3 +7,4 @@ services:
   admin:
     volumes:
     - ./app:/app/app
+    - ./config:/app/config

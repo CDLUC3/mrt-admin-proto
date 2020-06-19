@@ -15,6 +15,8 @@ module QueryHelper
   def rowClass(filterCol, row)
     return 'row' unless filterCol
     return 'total' if row[filterCol] == '-- Total --'
+    return 'specialtotal' if row[filterCol] == '-- Special Total --'
+    return 'grandtotal' if row[filterCol] == '-- Grand Total --'
     'row'
   end
 end

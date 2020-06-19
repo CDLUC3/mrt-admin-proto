@@ -49,6 +49,8 @@
           <%= link_to(col, :controller => :query, :action => :coll_mime_types, :mime => col) %>
         <% elsif (cname == 'coll' and col > 0) %>
           <%= link_to(col, :controller => :query, :action => :coll_details, :coll => col) %>
+        <% elsif (cname == 'ogroup' and col != 'ZZZ') %>
+          <%= link_to(col, :controller => :query, :action => :group_details, :ogroup => col) %>
         <% elsif (cname == 'ark') %>
           <%= link_to(col, arkLink(col)) %>
         <% elsif (cname == 'mnemonic') %>

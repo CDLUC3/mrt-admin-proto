@@ -287,7 +287,7 @@ class QueryController < ApplicationController
         sum(count_files) files,
         sum(billable_size) size
       from
-        owner_mime_use_details
+        owner_coll_mime_use_details
       group by
         ogroup,
         owner_id,
@@ -301,9 +301,19 @@ class QueryController < ApplicationController
         sum(count_files) files,
         sum(billable_size) size
       from
-        owner_mime_use_details
+        owner_coll_mime_use_details
       group by
         ogroup
+        union
+      select
+        max('ZZZ') as ogroup,
+        max(0) as owner_id,
+        max('-- Grand Total --') as own_name,
+        sum(count_objects) objects,
+        sum(count_files) files,
+        sum(billable_size) size
+      from
+        owner_coll_mime_use_details
       order by
         ogroup,
         own_name
@@ -313,7 +323,7 @@ class QueryController < ApplicationController
       params: [],
       title: 'Counts by Owner',
       headers: ['Group', 'Owner Id','Owner', 'Object Count', 'File Count', 'Billable Size'],
-      types: ['', 'own', 'name', 'dataint', 'dataint', 'dataint'],
+      types: ['ogroup', 'own', 'name', 'dataint', 'dataint', 'dataint'],
       filterCol: 2
     )
   end
@@ -321,37 +331,138 @@ class QueryController < ApplicationController
   def collections
     sql = %{
       select
+        ogroup,
         inv_collection_id,
-        cgroup,
         mnemonic,
         collection_name,
         sum(count_objects) objects,
         sum(count_files) files,
         sum(billable_size) size
       from
-        collection_mime_use_details
-      group by cgroup, inv_collection_id, mnemonic, collection_name
+        owner_coll_mime_use_details
+      group by ogroup, inv_collection_id, mnemonic, collection_name
       union
       select
+        ogroup,
         max(0),
-        cgroup,
         max(''),
-        max('-- Total --'),
+        max('-- Total --') as collection_name,
         sum(count_objects) objects,
         sum(count_files) files,
         sum(billable_size) size
       from
-        collection_mime_use_details
-      group by cgroup
-      order by cgroup, collection_name
+        owner_coll_mime_use_details
+      group by ogroup
+      union
+      select
+        max('ZZZ') as ogroup,
+        max(0),
+        max(''),
+        max('-- Grand Total --') as collection_name,
+        sum(count_objects) objects,
+        sum(count_files) files,
+        sum(billable_size) size
+      from
+        owner_coll_mime_use_details
+      order by ogroup, collection_name
     }
     run_query(
       sql: sql,
       params: [],
       title: 'Counts by Collection',
-      headers: ['Collection Id', 'Group', 'Mnemonic', 'Name', 'Object Count', 'File Count', 'Billable Size'],
-      types: ['coll', '', 'mnemonic', 'name', 'dataint', 'dataint', 'dataint'],
+      headers: ['Group', 'Collection Id', 'Mnemonic', 'Name', 'Object Count', 'File Count', 'Billable Size'],
+      types: ['ogroup', 'coll', 'mnemonic', 'name', 'dataint', 'dataint', 'dataint'],
       filterCol: 3
+    )
+  end
+
+  def coll_invoices
+    fy = params[:fy].to_i
+    dstart = "#{fy}-07-01"
+    dend = "#{fy+1}-07-01"
+    dnow = Time.new.strftime("%Y-%m-%d")
+    sql = %{
+      select
+        c.id,
+        c.name,
+        (
+          select
+            avg(billable_size)
+          from
+            daily_billing db
+          where
+            c.id = db.inv_collection_id
+          and
+            billing_totals_date = ?
+        ),
+        (
+          select
+            avg(billable_size)
+          from
+            daily_billing db
+          where
+            c.id = db.inv_collection_id
+          and
+            billing_totals_date = ?
+        ),
+        (
+          select
+            max(billable_size) - min(billable_size)
+          from
+            daily_billing db
+          where
+            c.id = db.inv_collection_id
+          and
+            billing_totals_date >= ?
+          and
+            billing_totals_date < ?
+        ),
+        (
+          select
+            avg(billable_size)
+          from
+            daily_billing db
+          where
+            c.id = db.inv_collection_id
+          and
+            billing_totals_date >= ?
+          and
+            billing_totals_date < ?
+        ),
+        (
+          select
+            count(billable_size)
+          from
+            daily_billing db
+          where
+            c.id = db.inv_collection_id
+          and
+            billing_totals_date >= ?
+          and
+            billing_totals_date < ?
+        ),
+        (
+          select
+            min(concat(?,?,?))
+          from
+            daily_billing db
+          where
+            c.id = db.inv_collection_id
+          and
+            billing_totals_date >= ?
+          and
+            billing_totals_date < ?
+        )
+      from
+        inv.inv_collections c
+      order by c.name
+    }
+    run_query(
+      sql: sql,
+      params: [dstart, dend, dstart, dend, dstart, dend, dstart, dend, dnow, dend, dstart, dstart, dend],
+      title: "Invoice by Collection for FY#{fy}",
+      headers: ['Collection Id', 'Name', 'FY Start', 'FY End', 'Diff', 'Avg', 'Days', 'Daily Avg'],
+      types: ['coll', 'name', 'dataint', 'dataint', 'dataint', 'dataint', 'dataint', 'dataint']
     )
   end
 
@@ -560,6 +671,24 @@ class QueryController < ApplicationController
         source = 'producer'
       group by
         g
+      union
+      select
+        max('ZZ Merritt System') as g,
+        max('-- Special Total --') as t,
+        sum(count_files),
+        sum(billable_size)
+      from
+        mime_use_details
+      where
+        source != 'producer'
+      union
+      select
+        max('ZZZ') as g,
+        max('-- Grand Total --') as t,
+        sum(count_files),
+        sum(billable_size)
+      from
+        mime_use_details
       order by
         g,
         t;
@@ -606,25 +735,137 @@ class QueryController < ApplicationController
     coll = params[:coll]
     sql = %{
       select
-        f.mime_type,
-        count(*),
-        sum(f.billable_size)
+        mime_group,
+        mime_type,
+        sum(count_objects),
+        sum(count_files),
+        sum(billable_size)
       from
-        inv.inv_collections c
-      inner join inv.inv_collections_inv_objects co
-        on c.id = co.inv_collection_id
-      inner join inv.inv_files f
-        on f.inv_object_id = co.inv_object_id
+        owner_coll_mime_use_details
       where
-        co.inv_collection_id = ?
-      group by f.mime_type;
+        source = 'producer'
+      and
+        inv_collection_id = ?
+      group by
+        mime_group, mime_type
+      union
+      select
+        mime_group,
+        max('-- Total --') as mime_type,
+        sum(count_objects),
+        sum(count_files),
+        sum(billable_size)
+      from
+        owner_coll_mime_use_details
+      where
+        source = 'producer'
+      and
+        inv_collection_id = ?
+      group by
+        mime_group
+      union
+      select
+        max('ZZ Merritt System') as mime_group,
+        max('-- Special Total --') as mime_type,
+        sum(count_objects),
+        sum(count_files),
+        sum(billable_size)
+      from
+        owner_coll_mime_use_details
+      where
+        source != 'producer'
+      and
+        inv_collection_id = ?
+      union
+      select
+        max('ZZZ') as mime_group,
+        max('-- Grand Total --') as mime_type,
+        sum(count_objects),
+        sum(count_files),
+        sum(billable_size)
+      from
+        owner_coll_mime_use_details
+      where
+        inv_collection_id = ?
+      order by
+        mime_group, mime_type
     }
     run_query(
       sql: sql,
-      params: [coll],
+      params: [coll, coll, coll, coll],
       title: "Collection Details for #{coll}",
-      headers: ['Mime Type', 'File Count', 'Billable Size'],
-      types: ['', 'data', 'dataint']
+      headers: ['Mime Group', 'Mime Type', 'Object Count', 'File Count', 'Billable Size'],
+      types: ['', 'mime', 'dataint', 'dataint', 'dataint'],
+      filterCol: 1
+    )
+  end
+
+  def group_details
+    ogroup = params[:ogroup]
+    sql = %{
+      select
+        mime_group,
+        mime_type,
+        sum(count_objects),
+        sum(count_files),
+        sum(billable_size)
+      from
+        owner_coll_mime_use_details
+      where
+        source = 'producer'
+      and
+        ogroup = ?
+      group by
+        mime_group, mime_type
+      union
+      select
+        mime_group,
+        max('-- Total --') as mime_type,
+        sum(count_objects),
+        sum(count_files),
+        sum(billable_size)
+      from
+        owner_coll_mime_use_details
+      where
+        source = 'producer'
+      and
+        ogroup = ?
+      group by
+        mime_group
+      union
+      select
+        max('ZZ Merritt System') as mime_group,
+        max('-- Special Total --') as mime_type,
+        sum(count_objects),
+        sum(count_files),
+        sum(billable_size)
+      from
+        owner_coll_mime_use_details
+      where
+        source != 'producer'
+      and
+        ogroup = ?
+      union
+      select
+        max('ZZZ') as mime_group,
+        max('-- Grand Total --') as mime_type,
+        sum(count_objects),
+        sum(count_files),
+        sum(billable_size)
+      from
+        owner_coll_mime_use_details
+      where
+        ogroup = ?
+      order by
+        mime_group, mime_type
+    }
+    run_query(
+      sql: sql,
+      params: [ogroup, ogroup, ogroup, ogroup],
+      title: "Collection Details for #{ogroup}",
+      headers: ['Mime Group', 'Mime Type', 'Object Count', 'File Count', 'Billable Size'],
+      types: ['', 'mime', 'dataint', 'dataint', 'dataint'],
+      filterCol: 1
     )
   end
 

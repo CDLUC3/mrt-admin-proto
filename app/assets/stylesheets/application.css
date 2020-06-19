@@ -65,7 +65,17 @@ table.results tr.row:nth-child(even) td.cell {
 
 table.results tr.total th.cell,
 table.results tr.total td.cell {
-  background-color: orange;
+  background-color: #F68D2E;
+}
+
+table.results tr.grandtotal th.cell,
+table.results tr.grandtotal td.cell {
+  background-color: #77913B;
+}
+
+table.results tr.specialtotal th.cell,
+table.results tr.specialtotal td.cell {
+  background-color: #D0D0D0;
 }
 
 table.results tr.header th,

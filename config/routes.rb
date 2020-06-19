@@ -14,8 +14,10 @@ Rails.application.routes.draw do
   get('query/coll_mime_types/:mime' => 'query#coll_mime_types')
   get 'query/owners'
   get 'query/collections'
+  get('query/coll_invoices/:fy' => 'query#coll_invoices')
   get('query/owners_coll/:own' => 'query#owners_coll')
   get 'query/files_non_ascii'
   get('query/coll_details/:coll' => 'query#coll_details')
+  get('query/group_details/:ogroup' => 'query#group_details')
   # For details on the DSL available within this file, see https://guides.rubyonrails.org/routing.html
 end
