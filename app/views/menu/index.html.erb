@@ -1,8 +1,11 @@
 <h1><%= APP_CONFIG['app_name'] %></h1>
 
 <ul>
+  <li><%= link_to("Items by Owner", :controller => :query, :action => :owners) %></li>
+  <li><%= link_to("Items by Collection", :controller => :query, :action => :collections) %></li>
+  <li><%= link_to("Mime Groups", :controller => :query, :action => :mime_groups) %></li>
   <li>
-    Objects
+    Object Queries
     <ul>
       <li>
         <% obj = url_for(controller: :query, action: :objects) %>
@@ -44,10 +47,6 @@
   </li>
   <li><%= link_to("Large Objects", :controller => :query, :action => :large_object) %></li>
   <li><%= link_to("Objects with Many Files", :controller => :query, :action => :many_files) %></li>
-  <li><%= link_to("Storage Nodes", :controller => :query, :action => :nodes) %></li>
-  <li><%= link_to("Items by Owner", :controller => :query, :action => :owners) %></li>
-  <li><%= link_to("Items by Collection", :controller => :query, :action => :collections) %></li>
-  <li><%= link_to("Mime Groups", :controller => :query, :action => :mime_groups) %></li>
-  <li><%= link_to("Mime Types", :controller => :query, :action => :mime_types) %></li>
   <li><%= link_to("Files with Non-Ascii Filenames", :controller => :query, :action => :files_non_ascii) %></li>
+  <li><%= link_to("Storage Nodes (Slow Query)", :controller => :query, :action => :nodes) %></li>
 </ul>

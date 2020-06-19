@@ -296,7 +296,7 @@ class QueryController < ApplicationController
         END as ogroup,
         own.id as own_id,
         CASE
-          WHEN own.name = '' THEN '(No name specified)'
+          WHEN own.name is null and own.id = 42 THEN 'Dryad'
           WHEN own.name is null THEN '(No name specified)'
           ELSE own.name
         END as own_name,
@@ -357,6 +357,25 @@ class QueryController < ApplicationController
     sql = %{
       select
         c.id,
+        CASE
+          WHEN c.name REGEXP '^(CDL|Merritt|eScholarship)' THEN 'CDL'
+          WHEN c.name REGEXP '^(LSTA)' THEN 'CDL-LSTA'
+          WHEN c.name REGEXP '^Dryad' THEN 'Dryad'
+          WHEN c.name REGEXP 'Dash$' THEN 'Dash'
+          WHEN c.mnemonic REGEXP '^cdl' THEN 'CDL'
+          WHEN c.name REGEXP '^(UCB |UC Berkeley)' THEN 'UCB'
+          WHEN c.name REGEXP '^(UCD |UC Davis)' THEN 'UCD'
+          WHEN c.name REGEXP '^(UCLA |UC Los Angeles)' THEN 'UCLA'
+          WHEN c.name REGEXP '^(UCSB |UC Santa Barbara)' THEN 'UCSB'
+          WHEN c.name REGEXP '^(UCI |UC Irvine)' THEN 'UCI'
+          WHEN c.name REGEXP '^(UCM |UC Merced|University of California, Merced)' THEN 'UCM'
+          WHEN c.name REGEXP '^(UCR |UC Riverside)' THEN 'UCR'
+          WHEN c.name REGEXP '^(UCSC |UC Santa Cruz)' THEN 'UCSC'
+          WHEN c.name REGEXP '^(UCSD |UC San Diego)' THEN 'UCSD'
+          WHEN c.name REGEXP '^(UCSF |UC San Francisco)' THEN 'UCSF'
+          WHEN c.name REGEXP '^(UC Press)' THEN 'UC Press'
+          ELSE 'Other'
+        END as cgroup,
         c.mnemonic,
         c.name,
         sum(dmud.count_objects) objects,
@@ -366,15 +385,15 @@ class QueryController < ApplicationController
         inv.inv_collections c
       inner join daily_mime_use_details dmud
         on dmud.inv_collection_id = c.id
-      group by c.id, c.mnemonic, c.name
-      order by c.id
+      group by cgroup, c.id, c.mnemonic, c.name
+      order by cgroup, c.name
     }
     run_query(
       sql: sql,
       params: [],
       title: 'Counts by Collection',
-      headers: ['Collection Id', 'Mnemonic', 'Name', 'Object Count', 'File Count', 'Billable Size'],
-      types: ['coll', 'mnemonic', '', 'dataint', 'dataint', 'dataint']
+      headers: ['Collection Id', 'Group', 'Mnemonic', 'Name', 'Object Count', 'File Count', 'Billable Size'],
+      types: ['coll', '', 'mnemonic', '', 'dataint', 'dataint', 'dataint']
     )
   end
 
@@ -384,27 +403,29 @@ class QueryController < ApplicationController
       select
         c.id,
         c.mnemonic,
-        count(co.inv_object_id)
+        c.name,
+        sum(dmud.count_objects),
+        sum(dmud.count_files),
+        sum(dmud.billable_size)
       from
         inv.inv_collections c
-      inner join inv.inv_collections_inv_objects co
-        on c.id = co.inv_collection_id
-      inner join inv.inv_objects o
-        on o.id = co.inv_object_id
+      inner join daily_mime_use_details dmud
+        on dmud.inv_collection_id = c.id
       where
-        o.inv_owner_id = ?
+        dmud.inv_owner_id = ?
       group by
         c.id,
-        c.mnemonic
+        c.mnemonic,
+        c.name
       order by
-        c.id
+        c.name
     }
     run_query(
       sql: sql,
       params: [own],
       title: "Counts by Owner #{own}",
-      headers: ['Collection Id', 'Collection Name', 'Object Count'],
-      types: ['coll', 'mnemonic', 'dataint']
+      headers: ['Collection Id', 'Mnemonic', 'Collection Name', 'Object Count', 'File Count', 'Billable Size'],
+      types: ['coll', 'mnemonic', '', 'dataint', 'dataint', 'dataint']
     )
   end
 
@@ -555,58 +576,69 @@ class QueryController < ApplicationController
     )
   end
 
-  def mime_types
-    sql = %{
-      select
-        f.mime_type,
-        count(*)
-      from
-        inv.inv_files f
-      group by
-        f.mime_type
-      order by
-        count(*) desc;
-    }
-    run_query(
-      sql: sql,
-      params: [],
-      title: 'Mime Types (Producer and System)',
-      headers: ['Mime Type', 'File Count'],
-      types: ['mime', 'dataint']
-    )
-  end
-
   def mime_groups
     sql = %{
       select
-         mime_group as g,
-         mime_type as t,
-         sum(count)
-       from
-         mime_use
-       group by
+        CASE
+          WHEN mime_type = 'text/csv' THEN 'data'
+          WHEN mime_type = 'plain/turtle' THEN 'data'
+          WHEN mime_type REGEXP '^application/(json|atom\.xml|marc|mathematica|x-hdf|x-matlab-data|x-sas|x-sh$|x-sqlite|x-stata)' THEN 'data'
+          WHEN mime_type REGEXP '^application/.*(zip|gzip|tar|compress|zlib)' THEN 'zip'
+          WHEN mime_type REGEXP '^application/(x-font|x-web)' THEN 'web'
+          WHEN mime_type REGEXP '^application/(x-dbf|vnd\.google-earth)' THEN 'geo'
+          WHEN mime_type REGEXP '^application/vnd\.(rn-real|chipnuts)' THEN 'audio'
+          WHEN mime_type REGEXP '^application/mxf' THEN 'video'
+          WHEN mime_type REGEXP '^(message|model)/' THEN 'text'
+          WHEN mime_type REGEXP '^(multipart|text/x-|application/java|application/x-executable|application/x-shockwave-flash)' THEN 'software'
+          WHEN mime_type REGEXP '^application/' THEN 'text'
+          ELSE substring_index(mime_type, '/', 1)
+        END as g,
+        mime_type as t,
+        sum(count_files),
+        sum(billable_size)
+      from
+         daily_mime_use_details
+       where
+         source = 'producer'
+      group by
          g,
          t
-       union
-       select
-         distinct mime_group as g,
-         '' as t,
-         sum(count)
-       from
-         mime_use
-       group by
-         g,
-         t
-       order by
-         g,
-         t;
+      union
+      select
+        distinct CASE
+          WHEN mime_type = 'text/csv' THEN 'data'
+          WHEN mime_type = 'plain/turtle' THEN 'data'
+          WHEN mime_type REGEXP '^application/(json|atom\.xml|marc|mathematica|x-hdf|x-matlab-data|x-sas|x-sh$|x-sqlite|x-stata)' THEN 'data'
+          WHEN mime_type REGEXP '^application/.*(zip|gzip|tar|compress|zlib)' THEN 'zip'
+          WHEN mime_type REGEXP '^application/(x-font|x-web)' THEN 'web'
+          WHEN mime_type REGEXP '^application/(x-dbf|vnd\.google-earth)' THEN 'geo'
+          WHEN mime_type REGEXP '^application/vnd\.(rn-real|chipnuts)' THEN 'audio'
+          WHEN mime_type REGEXP '^application/mxf' THEN 'video'
+          WHEN mime_type REGEXP '^(message|model)/' THEN 'text'
+          WHEN mime_type REGEXP '^(multipart|text/x-|application/java|application/x-executable|application/x-shockwave-flash)' THEN 'software'
+          WHEN mime_type REGEXP '^application/' THEN 'text'
+          ELSE substring_index(mime_type, '/', 1)
+        END as g,
+        '-- Total --' as t,
+        sum(count_files),
+        sum(billable_size)
+      from
+        daily_mime_use_details
+      where
+        source = 'producer'
+      group by
+        g,
+        t
+      order by
+        g,
+        t;
     }
     run_query(
       sql: sql,
       params: [],
-      title: 'Mime Groups (Producer and System)',
-      headers: ['Mime Group', 'Mime Type', 'File Count'],
-      types: ['mime-group', 'mime', 'dataint']
+      title: 'Mime Groups (Producer Files)',
+      headers: ['Mime Group', 'Mime Type', 'File Count', 'Billable Size'],
+      types: ['mime-group', 'mime', 'dataint', 'dataint']
     )
   end
 
