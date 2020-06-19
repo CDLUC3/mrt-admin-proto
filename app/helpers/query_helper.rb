@@ -11,4 +11,10 @@ module QueryHelper
     return '' if mnemonic == '' || mnemonic == NIL
     "#{ENV['MERRITT_URL']}/m/#{mnemonic}"
   end
+
+  def rowClass(filterCol, row)
+    return 'row' unless filterCol
+    return 'total' if row[filterCol] == '-- Total --'
+    'row'
+  end
 end

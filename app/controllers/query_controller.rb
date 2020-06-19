@@ -313,7 +313,8 @@ class QueryController < ApplicationController
       params: [],
       title: 'Counts by Owner',
       headers: ['Group', 'Owner Id','Owner', 'Object Count', 'File Count', 'Billable Size'],
-      types: ['', 'own', '', 'dataint', 'dataint', 'dataint']
+      types: ['', 'own', '', 'dataint', 'dataint', 'dataint'],
+      filterCol: 2
     )
   end
 
@@ -349,7 +350,8 @@ class QueryController < ApplicationController
       params: [],
       title: 'Counts by Collection',
       headers: ['Collection Id', 'Group', 'Mnemonic', 'Name', 'Object Count', 'File Count', 'Billable Size'],
-      types: ['coll', '', 'mnemonic', '', 'dataint', 'dataint', 'dataint']
+      types: ['coll', '', 'mnemonic', '', 'dataint', 'dataint', 'dataint'],
+      filterCol: 3
     )
   end
 
@@ -567,7 +569,8 @@ class QueryController < ApplicationController
       params: [],
       title: 'Mime Groups (Producer Files)',
       headers: ['Mime Group', 'Mime Type', 'File Count', 'Billable Size'],
-      types: ['mime-group', 'mime', 'dataint', 'dataint']
+      types: ['mime-group', 'mime', 'dataint', 'dataint'],
+      filterCol: 1
     )
   end
 
@@ -640,7 +643,8 @@ private
     params: [],
     title: 'Title',
     headers: [],
-    types: []
+    types: [],
+    filterCol: NIL
   )
     results = ActiveRecord::Base
       .connection
@@ -660,7 +664,8 @@ private
         title: title,
         headers: headers,
         types: types,
-        data: data
+        data: data,
+        filterCol: filterCol
       }
   end
 

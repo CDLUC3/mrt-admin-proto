@@ -2,7 +2,9 @@
 
 <%= link_to("Home", :controller => :menu, :action => :index) %>
 <h2><%= data.length %> Results</h2>
-
+<% if filterCol %>
+  <button onclick="$('tr.row').toggle()">Filter</button>
+<% end %>
 <div class="results">
 <table class="results sortable">
   <thead>
@@ -27,7 +29,7 @@
   <%
   data.each do |row|
   %>
-    <tr class="row">
+    <tr class="<%= rowClass(filterCol, row) %>">
       <%
       row.each_with_index do |col, c|
         cname = types[c]

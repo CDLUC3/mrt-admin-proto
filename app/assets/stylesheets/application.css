@@ -45,6 +45,11 @@ table.results tr.row:nth-child(even) td.cell {
   background-color: #EEE;
 }
 
+table.results tr.total th.cell,
+table.results tr.total td.cell {
+  background-color: orange;
+}
+
 table.results tr.header th,
 table.results tr.header td {
   background-color: yellow;
