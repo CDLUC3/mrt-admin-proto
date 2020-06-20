@@ -47,11 +47,11 @@
           <%= link_to(col, :controller => :query, :action => :owners_coll, :own => col) %>
         <% elsif (cname == 'mime') and not(/^--/.match?(col)) %>
           <%= link_to(col, :controller => :query, :action => :coll_mime_types, :mime => col) %>
-        <% elsif (cname == 'gmime') and col != '' %>
+        <% elsif (cname == 'gmime') and col != '' and not(/^ZZ/.match?(col)) %>
           <%= link_to(col, :controller => :query, :action => :coll_mime_groups, :gmime => col) %>
         <% elsif (cname == 'coll' and col > 0) %>
           <%= link_to(col, :controller => :query, :action => :coll_details, :coll => col) %>
-        <% elsif (cname == 'ogroup' and col != 'ZZZ') %>
+        <% elsif (cname == 'ogroup' and not(/^ZZ/.match?(col))) %>
           <%= link_to(col, :controller => :query, :action => :group_details, :ogroup => col) %>
         <% elsif (cname == 'ark') %>
           <%= link_to(col, arkLink(col)) %>
