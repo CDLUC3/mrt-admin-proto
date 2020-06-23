@@ -1,7 +1,6 @@
 class QueryController < ApplicationController
 
-  def objects
-    ark = "#{params['ark'].strip}%"
+  def objects_query(where, params, title)
     sql = %{
       select
         o.id,
@@ -32,66 +31,38 @@ class QueryController < ApplicationController
         on o.id = icio.inv_object_id
       inner join inv.inv_collections c
         on icio.inv_collection_id = c.id
-      where o.ark like ?
+      where
+    } + where +
+    %{
       order by o.id asc
       limit 20;
     }
     run_query(
       sql: sql,
-      params: [ark],
-      title: "Object(s) by Ark: #{ark}",
+      params: params,
+      title: title,
       headers: ['Object Id','Ark', 'Title', 'Version', 'Coll Id', 'Collection', 'File Count', 'Billable Size'],
       types: ['', 'ark', '', '', 'coll', 'mnemonic', 'dataint', 'dataint']
     )
+  end
+
+
+  def objects
+    ark = "#{params['ark'].strip}%"
+    objects_query('o.ark like ?', [ark], "Object(s) by Ark: #{ark}")
   end
 
   def objects_by_title
     title = "%#{params['title'].strip}%"
-    sql = %{
-      select
-        o.id,
-        o.ark,
-        o.erc_what,
-        o.version_number,
-        c.id,
-        c.mnemonic,
-        (
-          select
-            count(f.id)
-          from
-            inv.inv_files f
-          where
-            f.inv_object_id=o.id
-        ),
-        (
-          select
-            sum(f.billable_size)
-          from
-            inv.inv_files f
-          where
-            f.inv_object_id=o.id
-        )
-      from
-        inv.inv_objects o
-      inner join inv.inv_collections_inv_objects icio
-        on icio.inv_object_id = o.id
-      inner join inv.inv_collections c
-        on icio.inv_collection_id = c.id
-      where o.erc_what like ?
-      order by o.id asc
-      limit 20;
-    }
-    run_query(
-      sql: sql,
-      params: [title],
-      title: "Object(s) by Title: #{title}",
-      headers: ['Object Id','Ark', 'Title', 'Version', 'Coll Id', 'Collection', 'File Count', 'Billable Size'],
-      types: ['', 'ark', '', '', 'coll', 'mnemonic', 'dataint', 'dataint']
-    )
+    objects_query('o.erc_what like ?', [title], "Object(s) by Title: #{title}")
   end
 
   def objects_by_author
     author = "%#{params['author'].strip}%"
+    objects_query('o.erc_who like ?', [author], "Object(s) by Author: #{author}")
+  end
+
+  def files_query(where, params, title)
     sql = %{
       select
         o.id,
@@ -122,14 +93,18 @@ class QueryController < ApplicationController
         on icio.inv_object_id = o.id
       inner join inv.inv_collections c
         on icio.inv_collection_id = c.id
-      where o.erc_who like ?
+      inner join inv.inv_files f
+        on f.inv_object_id = o.id
+      where
+    } + where +
+    %{
       order by o.id asc
-      limit 20;
+      limit 50;
     }
     run_query(
       sql: sql,
-      params: [author],
-      title: "Object(s) by Author: #{author}",
+      params: params,
+      title: title,
       headers: ['Object Id','Ark', 'Title', 'Version', 'Coll Id', 'Collection', 'File Count', 'Billable Size'],
       types: ['', 'ark', '', '', 'coll', 'mnemonic', 'dataint', 'dataint']
     )
@@ -138,110 +113,32 @@ class QueryController < ApplicationController
   def objects_by_file_coll
     file = "producer/#{params['file'].strip}"
     coll = params['coll'].strip
-    sql = %{
-      select
-        o.id,
-        o.ark,
-        o.erc_what,
-        o.version_number,
-        c.id,
-        c.mnemonic,
-        (
-          select
-            count(f.id)
-          from
-            inv.inv_files f
-          where
-            f.inv_object_id=o.id
-        ),
-        (
-          select
-            sum(f.billable_size)
-          from
-            inv.inv_files f
-          where
-            f.inv_object_id=o.id
-        )
-      from
-        inv.inv_objects o
-      inner join inv.inv_collections_inv_objects icio
-        on icio.inv_object_id = o.id
-      inner join inv.inv_collections c
-        on icio.inv_collection_id = c.id
-      inner join inv.inv_files f
-        on f.inv_object_id = o.id
-      where f.pathname = ?
-        and source = 'producer'
-        and c.mnemonic = ?
-      order by o.id asc
-      limit 50;
-    }
-    run_query(
-      sql: sql,
-      params: [file, coll],
-      title: "Object(s) by Filename: #{file} in #{coll}",
-      headers: ['Object Id','Ark', 'Title', 'Version', 'Coll Id', 'Collection', 'File Count', 'Billable Size'],
-      types: ['', 'ark', '', '', 'coll', 'mnemonic', 'dataint', 'dataint']
+    files_query(
+      "f.pathname = ? and source = 'producer' and c.mnemonic = ?",
+      [file, coll],
+      "Object(s) by Filename/Coll: #{file} in #{coll}"
     )
   end
 
   def objects_by_file
     file = "producer/#{params['file'].strip}"
-    sql = %{
-      select
-        o.id,
-        o.ark,
-        o.erc_what,
-        o.version_number,
-        c.id,
-        c.mnemonic,
-        (
-          select
-            count(f.id)
-          from
-            inv.inv_files f
-          where
-            f.inv_object_id=o.id
-        ),
-        (
-          select
-            sum(f.billable_size)
-          from
-            inv.inv_files f
-          where
-            f.inv_object_id=o.id
-        )
-      from
-        inv.inv_objects o
-      inner join inv.inv_collections_inv_objects icio
-        on icio.inv_object_id = o.id
-      inner join inv.inv_collections c
-        on icio.inv_collection_id = c.id
-      inner join inv.inv_files f
-        on f.inv_object_id = o.id
-      where f.pathname = ?
-        and source = 'producer'
-      order by o.id asc
-      limit 50;
-    }
-    run_query(
-      sql: sql,
-      params: [file],
-      title: "Object(s) by Filename: #{file}",
-      headers: ['Object Id','Ark', 'Title', 'Version', 'Coll Id', 'Collection', 'File Count', 'Billable Size'],
-      types: ['', 'ark', '', '', 'coll', 'mnemonic', 'dataint', 'dataint']
+    files_query(
+      "f.pathname = ? and source = 'producer'",
+      [file],
+      "Object(s) by Filename: #{file}"
     )
   end
 
+  # This query is too slow to run against millions of records
   def files_non_ascii
     subsql = %{
       select
-        f.id
+        f.inv_object_id
       from
         inv.inv_files f
       where
         f.pathname <> CONVERT(f.pathname USING ASCII)
-      limit 20;
+      limit 1;
     }
 
     ids = run_subquery(sql: subsql)
@@ -250,31 +147,48 @@ class QueryController < ApplicationController
       qs.push('?')
     end
 
-    sql = %{
+    objects_query("o.id in (#{qs.join(',')})", ids, "Objects with Files with Non Ascii Path (Max 20)")
+  end
+
+  def large_object
+    subsql = %{
       select
-        f.pathname,
-        o.id,
-        o.ark,
-        c.id,
-        c.mnemonic
+        f.inv_object_id
       from
         inv.inv_files f
-      inner join inv.inv_objects o
-        on f.inv_object_id = o.id
-      inner join inv.inv_collections_inv_objects co
-        on co.inv_object_id = o.id
-      inner join inv.inv_collections c
-        on c.id = co.inv_collection_id and o.id = co.inv_object_id
-      where
-        f.id in (#{qs.join(',')})
+      group by
+        f.inv_object_id
+      having
+        sum(f.billable_size) > 1073741824
+      limit 50;
     }
-    run_query(
-      sql: sql,
-      params: ids,
-      title: 'Files with Non Ascii Path (Max 20)',
-      headers: ['File Path', 'Object Id', 'Ark', 'Collection Id', 'Collection Name'],
-      types: ['', '', 'ark', '', 'mnemonic']
-    )
+    ids = run_subquery(sql: subsql)
+    qs = []
+    ids.each do|row|
+      qs.push('?')
+    end
+
+    objects_query("o.id in (#{qs.join(',')})", ids, "50 Large Objects (need to paginate)")
+  end
+
+  def many_files
+    subsql = %{
+      select
+        f.inv_object_id
+      from
+        inv.inv_files f
+      group by
+        f.inv_object_id
+      having
+        count(f.id) > 1000
+      limit 50;
+    }
+    ids = run_subquery(sql: subsql)
+    qs = []
+    ids.each do|row|
+      qs.push('?')
+    end
+    objects_query("o.id in (#{qs.join(',')})", ids, "Objects with Many Files (need to paginate)")
   end
 
   def owners
@@ -380,9 +294,25 @@ class QueryController < ApplicationController
     fy = params[:fy].to_i
     dstart = "#{fy}-07-01"
     dend = "#{fy+1}-07-01"
-    dnow = Time.new.strftime("%Y-%m-%d")
+
     sql = %{
       select
+        max(billing_totals_date)
+      from
+        daily_billing
+      where
+        billing_totals_date <= ?
+    }
+    res = run_subquery(sql: sql, params: [dend])
+    dytd = res[0];
+
+    sql = %{
+      select
+        ? as dstart,
+        ? as dend,
+        ? as dytd,
+        (select datediff(dend, dstart)) as ryear,
+        (select datediff(dytd, dstart)) as rytd,
         c.id,
         c.name,
         (
@@ -393,7 +323,7 @@ class QueryController < ApplicationController
           where
             c.id = db.inv_collection_id
           and
-            billing_totals_date = ?
+            billing_totals_date = dstart
         ),
         (
           select
@@ -403,7 +333,17 @@ class QueryController < ApplicationController
           where
             c.id = db.inv_collection_id
           and
-            billing_totals_date = ?
+            billing_totals_date = dend
+        ),
+        (
+          select
+            avg(billable_size)
+          from
+            daily_billing db
+          where
+            c.id = db.inv_collection_id
+          and
+            billing_totals_date = dytd
         ),
         (
           select
@@ -413,9 +353,9 @@ class QueryController < ApplicationController
           where
             c.id = db.inv_collection_id
           and
-            billing_totals_date >= ?
+            billing_totals_date >= dstart
           and
-            billing_totals_date < ?
+            billing_totals_date < dend
         ),
         (
           select
@@ -425,9 +365,9 @@ class QueryController < ApplicationController
           where
             c.id = db.inv_collection_id
           and
-            billing_totals_date >= ?
+            billing_totals_date >= dstart
           and
-            billing_totals_date < ?
+            billing_totals_date < dend
         ),
         (
           select
@@ -437,32 +377,37 @@ class QueryController < ApplicationController
           where
             c.id = db.inv_collection_id
           and
-            billing_totals_date >= ?
+            billing_totals_date >= dstart
           and
-            billing_totals_date < ?
+            billing_totals_date < dend
         ),
         (
           select
-            min(concat(?,?,?))
+            case
+              when count(datediff(dytd, dstart)) = 0 then 0
+              else avg(billable_size) * count(billable_size) / (datediff(dytd, dstart) + 1) 
+            end
           from
             daily_billing db
           where
             c.id = db.inv_collection_id
           and
-            billing_totals_date >= ?
+            billing_totals_date >= dstart
           and
-            billing_totals_date < ?
+            billing_totals_date < dend
         )
       from
         inv.inv_collections c
+      where
+        c.id != 50
       order by c.name
     }
     run_query(
       sql: sql,
-      params: [dstart, dend, dstart, dend, dstart, dend, dstart, dend, dnow, dend, dstart, dstart, dend],
+      params: [dstart, dend, dytd],
       title: "Invoice by Collection for FY#{fy}",
-      headers: ['Collection Id', 'Name', 'FY Start', 'FY End', 'Diff', 'Avg', 'Days', 'Daily Avg'],
-      types: ['coll', 'name', 'dataint', 'dataint', 'dataint', 'dataint', 'dataint', 'dataint']
+      headers: ['','','', '', '', 'Collection Id', 'Name', 'FY Start', 'FY End', 'FY YTD', 'Diff', 'Avg', 'Days', 'YTD Daily Avg'],
+      types: ['na', 'na', 'na', 'na', 'na', 'coll', 'name', 'dataint', 'dataint', 'dataint', 'dataint', 'dataint', 'dataint', 'dataint']
     )
   end
 
@@ -498,93 +443,6 @@ class QueryController < ApplicationController
     )
   end
 
-  def large_object
-    subsql = %{
-      select
-        f.inv_object_id
-      from
-        inv.inv_files f
-      group by
-        f.inv_object_id
-      having
-        sum(f.billable_size) > 1073741824
-      limit 50;
-    }
-    ids = run_subquery(sql: subsql)
-    qs = []
-    ids.each do|row|
-      qs.push('?')
-    end
-
-    sql = %{
-      select
-        o.id,
-        o.ark,
-        c.id,
-        c.mnemonic,
-        (select count(f.id) from inv.inv_files f where f.inv_object_id = o.id),
-        (select sum(f.billable_size) from inv.inv_files f where f.inv_object_id = o.id)
-      from
-        inv.inv_objects o
-      inner join inv.inv_collections_inv_objects icio
-        on icio.inv_object_id = o.id
-      inner join inv.inv_collections c
-        on c.id = icio.inv_collection_id
-      where
-        o.id in (#{qs.join(',')});
-    }
-    run_query(
-      sql: sql,
-      params: ids,
-      title: '50 Large Objects (need to paginate)',
-      headers: ['Object Id','Ark', 'Collection Id', 'Collection', 'File Count', 'Billable Size'],
-      types: ['', 'ark', '', 'mnemonic', 'dataint', 'dataint']
-    )
-  end
-
-  def many_files
-    subsql = %{
-      select
-        f.inv_object_id
-      from
-        inv.inv_files f
-      group by
-        f.inv_object_id
-      having
-        count(f.id) > 1000
-      limit 50;
-    }
-    ids = run_subquery(sql: subsql)
-    qs = []
-    ids.each do|row|
-      qs.push('?')
-    end
-
-    sql = %{
-      select
-        o.id,
-        o.ark,
-        c.id,
-        c.mnemonic,
-        (select count(f.id) from inv.inv_files f where f.inv_object_id = o.id),
-        (select sum(f.billable_size) from inv.inv_files f where f.inv_object_id = o.id)
-      from
-        inv.inv_objects o
-      inner join inv.inv_collections_inv_objects icio
-        on icio.inv_object_id = o.id
-      inner join inv.inv_collections c
-        on c.id = icio.inv_collection_id
-      where
-        o.id in (#{qs.join(',')});
-    }
-    run_query(
-      sql: sql,
-      params: ids,
-      title: 'Objects with Many Files (need to paginate)',
-      headers: ['Object Id', 'Ark', 'Collection id', 'Collection', 'File Count', 'Billable Size'],
-      types: ['', 'ark', '', 'mnemonic', 'dataint', 'dataint']
-    )
-  end
 
   def nodes
     sql = %{
