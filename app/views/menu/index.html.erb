@@ -2,8 +2,9 @@
 
 <h3>Understanding Merritt Content</h3>
 <ul>
-  <li><%= link_to("Items by Owner", :controller => :query, :action => :owners) %></li>
-  <li><%= link_to("Items by Collection", :controller => :query, :action => :collections) %></li>
+  <li><%= link_to("File Counts by Owner", :controller => :query, :action => :owners) %></li>
+  <li><%= link_to("Object Counts by Owner", :controller => :query, :action => :owners_obj) %></li>
+  <li><%= link_to("File Counts by Collection", :controller => :query, :action => :collections) %></li>
   <li><%= link_to("Mime Groups", :controller => :query, :action => :mime_groups) %></li>
 </ul>
 
@@ -50,13 +51,8 @@
       <input type="submit" value="Go!"/>
     </form>
   </li>
-  <li>
-    <% obj = url_for(controller: :query, action: :objects_by_file) %>
-    <form action="<%= obj %>" method="get">
-      Object(s) by Filename: <input name="file" type="text" value="" size=60 />
-      <input type="submit" value="Go!"/>
-    </form>
-  </li>
+  <li>Terry and Eric decided to not support search by filename (without collection scope)</li>
+  <li>Search for non ascii pathnames is too slow</li>
 </ul>
 
 <h3>Interesting Use Cases Content</h3>

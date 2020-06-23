@@ -197,7 +197,6 @@ class QueryController < ApplicationController
         ogroup,
         inv_owner_id as owner_id,
         own_name,
-        sum(count_objects) objects,
         sum(count_files) files,
         sum(billable_size) size
       from
@@ -211,7 +210,6 @@ class QueryController < ApplicationController
         ogroup,
         max(0) as owner_id,
         max('-- Total --') as own_name,
-        sum(count_objects) objects,
         sum(count_files) files,
         sum(billable_size) size
       from
@@ -223,7 +221,6 @@ class QueryController < ApplicationController
         max('ZZZ') as ogroup,
         max(0) as owner_id,
         max('-- Grand Total --') as own_name,
-        sum(count_objects) objects,
         sum(count_files) files,
         sum(billable_size) size
       from
@@ -235,10 +232,51 @@ class QueryController < ApplicationController
     run_query(
       sql: sql,
       params: [],
-      title: 'Counts by Owner',
-      headers: ['Group', 'Owner Id','Owner', 'Object Count', 'File Count', 'Billable Size'],
-      types: ['ogroup', 'own', 'name', 'dataint', 'dataint', 'dataint'],
+      title: 'File Counts by Owner',
+      headers: ['Group', 'Owner Id','Owner', 'File Count', 'Billable Size'],
+      types: ['ogroup', 'own', 'name', 'dataint', 'dataint'],
       filterCol: 2
+    )
+  end
+
+  def owners_obj
+    sql = %{
+      select
+        ogroup,
+        collection_name,
+        sum(count_objects) as count_objects
+      from
+        owner_collections_objects
+      group by
+        ogroup,
+        collection_name
+      union
+      select
+        ogroup,
+        max('-- Total --') as collection_name,
+        sum(count_objects) as count_objects
+      from
+        owner_collections_objects
+      group by
+        ogroup
+      union
+      select
+        max('ZZZ') as ogroup,
+        max('-- Grand Total --') as collection_name,
+        sum(count_objects) as count_objects
+      from
+        owner_collections_objects
+      order by
+        ogroup,
+        collection_name
+    }
+    run_query(
+      sql: sql,
+      params: [],
+      title: 'Object Counts by Owner',
+      headers: ['Group', 'Collection', 'Object Count'],
+      types: ['ogroup', 'name', 'dataint'],
+      filterCol: 1
     )
   end
 
@@ -249,7 +287,6 @@ class QueryController < ApplicationController
         inv_collection_id,
         mnemonic,
         collection_name,
-        sum(count_objects) objects,
         sum(count_files) files,
         sum(billable_size) size
       from
@@ -261,7 +298,6 @@ class QueryController < ApplicationController
         max(0),
         max(''),
         max('-- Total --') as collection_name,
-        sum(count_objects) objects,
         sum(count_files) files,
         sum(billable_size) size
       from
@@ -273,7 +309,6 @@ class QueryController < ApplicationController
         max(0),
         max(''),
         max('-- Grand Total --') as collection_name,
-        sum(count_objects) objects,
         sum(count_files) files,
         sum(billable_size) size
       from
@@ -283,9 +318,9 @@ class QueryController < ApplicationController
     run_query(
       sql: sql,
       params: [],
-      title: 'Counts by Collection',
-      headers: ['Group', 'Collection Id', 'Mnemonic', 'Name', 'Object Count', 'File Count', 'Billable Size'],
-      types: ['ogroup', 'coll', 'mnemonic', 'name', 'dataint', 'dataint', 'dataint'],
+      title: 'File Counts by Collection',
+      headers: ['Group', 'Collection Id', 'Mnemonic', 'Name', 'File Count', 'Billable Size'],
+      types: ['ogroup', 'coll', 'mnemonic', 'name', 'dataint', 'dataint'],
       filterCol: 3
     )
   end
@@ -306,7 +341,7 @@ class QueryController < ApplicationController
     res = run_subquery(sql: sql, params: [dend])
     dytd = res[0].to_s;
     fypast = (dytd >= dend)
-    rate = (dend <= '2019-07-01') ? 0.00000000000178 : 0.000000000000411
+    rate = (dend <= '2019-07-01') ? 0.000000000001780822 : 0.000000000000410959
     annrate = ((rate * 1_000_000_000_000 * 365) * 100).to_i / 100.0
 
     sql = %{
@@ -444,7 +479,6 @@ class QueryController < ApplicationController
         c.id,
         c.mnemonic,
         c.name,
-        sum(dmud.count_objects),
         sum(dmud.count_files),
         sum(dmud.billable_size)
       from
@@ -464,8 +498,8 @@ class QueryController < ApplicationController
       sql: sql,
       params: [own],
       title: "Counts by Owner #{own}",
-      headers: ['Collection Id', 'Mnemonic', 'Collection Name', 'Object Count', 'File Count', 'Billable Size'],
-      types: ['coll', 'mnemonic', '', 'dataint', 'dataint', 'dataint']
+      headers: ['Collection Id', 'Mnemonic', 'Collection Name', 'File Count', 'Billable Size'],
+      types: ['coll', 'mnemonic', '', 'dataint', 'dataint']
     )
   end
 
@@ -595,7 +629,6 @@ class QueryController < ApplicationController
         inv_collection_id,
         mnemonic,
         collection_name,
-        sum(count_objects),
         sum(count_files),
         sum(billable_size)
       from
@@ -609,7 +642,6 @@ class QueryController < ApplicationController
         max(0),
         max(''),
         max('-- Total --'),
-        sum(count_objects),
         sum(count_files),
         sum(billable_size)
       from
@@ -622,8 +654,8 @@ class QueryController < ApplicationController
       sql: sql,
       params: [mime, mime],
       title: "Collection distribution for mime type #{mime}",
-      headers: ['Group', 'Collection Id', 'Mnemonic', 'Collection Name', 'Object Count', 'File Count', 'Billable Size'],
-      types: ['ogroup', 'coll', 'mnemonic', 'name', 'dataint', 'dataint', 'dataint'],
+      headers: ['Group', 'Collection Id', 'Mnemonic', 'Collection Name', 'File Count', 'Billable Size'],
+      types: ['ogroup', 'coll', 'mnemonic', 'name', 'dataint', 'dataint'],
       filterCol: 3
     )
   end
@@ -636,7 +668,6 @@ class QueryController < ApplicationController
         inv_collection_id,
         mnemonic,
         collection_name,
-        sum(count_objects),
         sum(count_files),
         sum(billable_size)
       from
@@ -650,7 +681,6 @@ class QueryController < ApplicationController
         max(0),
         max(''),
         max('-- Total --'),
-        sum(count_objects),
         sum(count_files),
         sum(billable_size)
       from
@@ -663,8 +693,8 @@ class QueryController < ApplicationController
       sql: sql,
       params: [gmime, gmime],
       title: "Collection distribution for mime group #{gmime}",
-      headers: ['Group', 'Collection Id', 'Mnemonic', 'Collection Name', 'Object Count', 'File Count', 'Billable Size'],
-      types: ['ogroup', 'coll', 'mnemonic', 'name', 'dataint', 'dataint', 'dataint'],
+      headers: ['Group', 'Collection Id', 'Mnemonic', 'Collection Name', 'File Count', 'Billable Size'],
+      types: ['ogroup', 'coll', 'mnemonic', 'name', 'dataint', 'dataint'],
       filterCol: 3
     )
   end
@@ -675,7 +705,6 @@ class QueryController < ApplicationController
       select
         mime_group,
         mime_type,
-        sum(count_objects),
         sum(count_files),
         sum(billable_size)
       from
@@ -690,7 +719,6 @@ class QueryController < ApplicationController
       select
         mime_group,
         max('-- Total --') as mime_type,
-        sum(count_objects),
         sum(count_files),
         sum(billable_size)
       from
@@ -705,7 +733,6 @@ class QueryController < ApplicationController
       select
         max('ZZ Merritt System') as mime_group,
         max('-- Special Total --') as mime_type,
-        sum(count_objects),
         sum(count_files),
         sum(billable_size)
       from
@@ -718,7 +745,6 @@ class QueryController < ApplicationController
       select
         max('ZZZ') as mime_group,
         max('-- Grand Total --') as mime_type,
-        sum(count_objects),
         sum(count_files),
         sum(billable_size)
       from
@@ -732,8 +758,8 @@ class QueryController < ApplicationController
       sql: sql,
       params: [coll, coll, coll, coll],
       title: "Collection Details for #{coll}",
-      headers: ['Mime Group', 'Mime Type', 'Object Count', 'File Count', 'Billable Size'],
-      types: ['gmime', 'mime', 'dataint', 'dataint', 'dataint'],
+      headers: ['Mime Group', 'Mime Type', 'File Count', 'Billable Size'],
+      types: ['gmime', 'mime', 'dataint', 'dataint'],
       filterCol: 1
     )
   end
@@ -744,7 +770,6 @@ class QueryController < ApplicationController
       select
         mime_group,
         mime_type,
-        sum(count_objects),
         sum(count_files),
         sum(billable_size)
       from
@@ -759,7 +784,6 @@ class QueryController < ApplicationController
       select
         mime_group,
         max('-- Total --') as mime_type,
-        sum(count_objects),
         sum(count_files),
         sum(billable_size)
       from
@@ -774,7 +798,6 @@ class QueryController < ApplicationController
       select
         max('ZZ Merritt System') as mime_group,
         max('-- Special Total --') as mime_type,
-        sum(count_objects),
         sum(count_files),
         sum(billable_size)
       from
@@ -787,7 +810,6 @@ class QueryController < ApplicationController
       select
         max('ZZZ') as mime_group,
         max('-- Grand Total --') as mime_type,
-        sum(count_objects),
         sum(count_files),
         sum(billable_size)
       from
@@ -801,8 +823,8 @@ class QueryController < ApplicationController
       sql: sql,
       params: [ogroup, ogroup, ogroup, ogroup],
       title: "Collection Details for #{ogroup}",
-      headers: ['Mime Group', 'Mime Type', 'Object Count', 'File Count', 'Billable Size'],
-      types: ['gmime', 'mime', 'dataint', 'dataint', 'dataint'],
+      headers: ['Mime Group', 'Mime Type', 'File Count', 'Billable Size'],
+      types: ['gmime', 'mime', 'dataint', 'dataint'],
       filterCol: 1
     )
   end
