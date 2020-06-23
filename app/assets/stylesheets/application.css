@@ -33,6 +33,8 @@ table.results td {
   padding: 4px;
 }
 
+table.results th.money,
+table.results td.money,
 table.results th.data,
 table.results td.data,
 table.results th.dataint,

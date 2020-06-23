@@ -3,7 +3,6 @@
 <h3>Understanding Merritt Content</h3>
 <ul>
   <li><%= link_to("File Counts by Owner", :controller => :query, :action => :owners) %></li>
-  <li><%= link_to("Object Counts by Owner", :controller => :query, :action => :owners_obj) %></li>
   <li><%= link_to("File Counts by Collection", :controller => :query, :action => :collections) %></li>
   <li><%= link_to("Mime Groups", :controller => :query, :action => :mime_groups) %></li>
 </ul>
@@ -63,4 +62,5 @@
 <h3>Slow Queries</h3>
 <ul>
   <li><%= link_to("Storage Nodes", :controller => :query, :action => :nodes) %></li>
+  <li><%= link_to("Object Counts by Owner and Collection", :controller => :query, :action => :owners_obj) %></li>
 </ul>

@@ -349,6 +349,7 @@ class QueryController < ApplicationController
         ? as dstart,
         ? as dend,
         ? as dytd,
+        ? as rate,
         ogroup,
         collection_name,
         (
@@ -358,8 +359,6 @@ class QueryController < ApplicationController
             daily_billing db
           where
             c.inv_collection_id = db.inv_collection_id
-          and
-            c.inv_owner_id = db.inv_owner_id
           and
             c.inv_owner_id = db.inv_owner_id
           and
@@ -408,6 +407,13 @@ class QueryController < ApplicationController
         ) as days_available,
         (
           select
+            case
+              when datediff(dend, dytd) = 0 then 0
+              else datediff(dend, dytd) - 1
+            end
+        ) as days_projected,
+        (
+          select
             avg(billable_size)
           from
             daily_billing db
@@ -421,25 +427,125 @@ class QueryController < ApplicationController
             billing_totals_date < dend
         ) as average_available,
         (
+          select
+            case
+              when datediff(dend, dytd) = 0 then average_available * days_available
+              else (average_available * days_available) + (ytd_size * (datediff(dend, dytd) - 1))
+            end / datediff(dend, dstart)
+        ) as daily_average_projected,
+        (
+          select daily_average_projected * rate * 365
+        ) as cost,
+        null as cost_adj
+      from
+        owner_collections c
+      union
+      select
+        ? as dstart,
+        ? as dend,
+        ? as dytd,
+        ? as rate,
+        ogroup,
+        max('-- Total --') as collection_name,
+        (
+          select
+            ifnull(sum(billable_size), 0)
+          from
+            daily_billing db
+          inner join owner_list ol2
+            on ol2.inv_owner_id = db.inv_owner_id
+          where
+            ol2.ogroup = ol.ogroup
+          and
+            billing_totals_date = dstart
+        ) as start_size,
+        (
+          select
+            ifnull(sum(billable_size), 0)
+          from
+            daily_billing db
+          inner join owner_list ol2
+            on ol2.inv_owner_id = db.inv_owner_id
+          where
+            ol2.ogroup = ol.ogroup
+          and
+            billing_totals_date = dytd
+        ) as ytd_size,
+        (
+          select
+            ifnull(sum(billable_size), 0)
+          from
+            daily_billing db
+          inner join owner_list ol2
+            on ol2.inv_owner_id = db.inv_owner_id
+          where
+            ol2.ogroup = ol.ogroup
+          and
+            billing_totals_date = dend
+        ) as end_size,
+        (
+          select ytd_size - start_size
+        ) as diff_size,
+        (
+          select
+            case
+              when datediff(dend, dytd) = 0 then datediff(dytd, dstart)
+              else datediff(dytd, dstart) + 1
+            end
+        ) as days_available,
+        (
+          select
+            case
+              when datediff(dend, dytd) = 0 then 0
+              else datediff(dend, dytd) - 1
+            end
+        ) as days_projected,
+        (
+          select
+            sum(billable_size) / datediff(dytd, dstart)
+          from
+            daily_billing db
+          inner join owner_list ol2
+            on ol2.inv_owner_id = db.inv_owner_id
+          where
+            ol2.ogroup = ol.ogroup
+          and
+            billing_totals_date >= dstart
+          and
+            billing_totals_date < dend
+        ) as average_available,
+        (
           select (
             (average_available * days_available) + (ytd_size * datediff(dend, dytd))
           ) / datediff(dend, dstart)
         ) as daily_average_projected,
         (
-          select daily_average_projected * ? * datediff(dend, dstart)
-        ) as cost
+          select daily_average_projected * rate * 365
+        ) as cost,
+        (
+          select
+            case
+              when ogroup = 'CDL' then 0
+              when ogroup = 'Other' then 0
+              when dstart < '2019-07-01' then daily_average_projected
+              when daily_average_projected < 10000000000000 then 0
+              else daily_average_projected - 10000000000000
+            end * rate * 365
+        ) as cost_adj
       from
-        owner_collections c
+        owner_list ol
+      group by
+        ogroup
       order by
         ogroup,
         collection_name
     }
     run_query(
       sql: sql,
-      params: [dstart, dend, dytd, rate],
+      params: [dstart, dend, dytd, rate, dstart, dend, dytd, rate],
       title: "Invoice by Collection for FY#{fy}",
       headers: [
-        '', '', '',
+        '', '', '', '',
         'Group', 'Name',
 
         'FY Start',
@@ -448,14 +554,16 @@ class QueryController < ApplicationController
 
         'Diff',
         'Days',
+        'Days Projected',
         'Avg',
 
-        fypast ? 'Daily Avg (over whole year)' : 'Daily Avg (Projected) (over whole year)',
+        'Daily Avg (Projected) (over whole year)',
 
-        "Cost/TB #{annrate}"
+        "Cost/TB #{annrate}",
+        "Adjusted Cost"
       ],
       types: [
-        'na', 'na', 'na',
+        'na', 'na', 'na', 'na',
         '', 'name',
 
         'dataint',
@@ -464,11 +572,15 @@ class QueryController < ApplicationController
 
         'dataint',
         'dataint',
+        fypast ? 'na' : 'dataint',
         'dataint',
 
-        'dataint',
+        fypast ? 'na' : 'dataint',
+
+        'money',
         'money'
-      ]
+      ],
+      filterCol: 5
     )
   end
 
