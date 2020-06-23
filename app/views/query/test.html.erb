@@ -12,6 +12,7 @@
     <%
     headers.each_with_index do |header, c|
       cname = types[c]
+      next if cname == 'na'
       if cname == 'data' || cname == 'dataint'
       %>
           <th class="sorttable_numeric"><%= header %></th>
@@ -33,12 +34,15 @@
       <%
       row.each_with_index do |col, c|
         cname = types[c]
+        next if cname == 'na'
       %>
         <td class="cell <%= cname %>">
         <% if (cname == 'data') %>
           <%= number_with_delimiter(col, delimiter: ',') %>
         <% elsif (cname == 'dataint') %>
           <%= number_with_delimiter(number_with_precision(col, precision: 0), delimiter: ',') %>
+        <% elsif (cname == 'money') %>
+          <%= number_with_delimiter(number_with_precision(col, precision: 2), delimiter: ',') %>
         <% elsif (cname == 'datasize') %>
           <%= number_to_human_size(col) %>
         <% elsif (cname == 'node' and col > 0) %>

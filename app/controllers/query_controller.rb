@@ -304,110 +304,136 @@ class QueryController < ApplicationController
         billing_totals_date <= ?
     }
     res = run_subquery(sql: sql, params: [dend])
-    dytd = res[0];
+    dytd = res[0].to_s;
+    fypast = (dytd >= dend)
+    rate = (dend <= '2019-07-01') ? 0.00000000000178 : 0.000000000000411
+    annrate = ((rate * 1_000_000_000_000 * 365) * 100).to_i / 100.0
 
     sql = %{
       select
         ? as dstart,
         ? as dend,
         ? as dytd,
-        (select datediff(dend, dstart)) as ryear,
-        (select datediff(dytd, dstart)) as rytd,
-        c.id,
-        c.name,
+        ogroup,
+        collection_name,
         (
           select
-            avg(billable_size)
+            ifnull(avg(billable_size), 0)
           from
             daily_billing db
           where
-            c.id = db.inv_collection_id
+            c.inv_collection_id = db.inv_collection_id
+          and
+            c.inv_owner_id = db.inv_owner_id
+          and
+            c.inv_owner_id = db.inv_owner_id
           and
             billing_totals_date = dstart
-        ),
+        ) as start_size,
         (
           select
-            avg(billable_size)
+            ifnull(avg(billable_size), 0)
           from
             daily_billing db
           where
-            c.id = db.inv_collection_id
+            c.inv_collection_id = db.inv_collection_id
           and
-            billing_totals_date = dend
-        ),
-        (
-          select
-            avg(billable_size)
-          from
-            daily_billing db
-          where
-            c.id = db.inv_collection_id
+            c.inv_owner_id = db.inv_owner_id
           and
             billing_totals_date = dytd
-        ),
+        ) as ytd_size,
         (
           select
-            max(billable_size) - min(billable_size)
+            ifnull(avg(billable_size), 0)
           from
             daily_billing db
           where
-            c.id = db.inv_collection_id
+            c.inv_collection_id = db.inv_collection_id
           and
-            billing_totals_date >= dstart
+            c.inv_owner_id = db.inv_owner_id
           and
-            billing_totals_date < dend
-        ),
+            billing_totals_date = dend
+        ) as end_size,
         (
-          select
-            avg(billable_size)
-          from
-            daily_billing db
-          where
-            c.id = db.inv_collection_id
-          and
-            billing_totals_date >= dstart
-          and
-            billing_totals_date < dend
-        ),
+          select ytd_size - start_size
+        ) as diff_size,
         (
           select
             count(billable_size)
           from
             daily_billing db
           where
-            c.id = db.inv_collection_id
+            c.inv_collection_id = db.inv_collection_id
+          and
+            c.inv_owner_id = db.inv_owner_id
           and
             billing_totals_date >= dstart
           and
             billing_totals_date < dend
-        ),
+        ) as days_available,
         (
           select
-            case
-              when count(datediff(dytd, dstart)) = 0 then 0
-              else avg(billable_size) * count(billable_size) / (datediff(dytd, dstart) + 1) 
-            end
+            avg(billable_size)
           from
             daily_billing db
           where
-            c.id = db.inv_collection_id
+            c.inv_collection_id = db.inv_collection_id
+          and
+            c.inv_owner_id = db.inv_owner_id
           and
             billing_totals_date >= dstart
           and
             billing_totals_date < dend
-        )
+        ) as average_available,
+        (
+          select (
+            (average_available * days_available) + (ytd_size * datediff(dend, dytd))
+          ) / datediff(dend, dstart)
+        ) as daily_average_projected,
+        (
+          select daily_average_projected * ? * datediff(dend, dstart)
+        ) as cost
       from
-        inv.inv_collections c
-      where
-        c.id != 50
-      order by c.name
+        owner_collections c
+      order by
+        ogroup,
+        collection_name
     }
     run_query(
       sql: sql,
-      params: [dstart, dend, dytd],
+      params: [dstart, dend, dytd, rate],
       title: "Invoice by Collection for FY#{fy}",
-      headers: ['','','', '', '', 'Collection Id', 'Name', 'FY Start', 'FY End', 'FY YTD', 'Diff', 'Avg', 'Days', 'YTD Daily Avg'],
-      types: ['na', 'na', 'na', 'na', 'na', 'coll', 'name', 'dataint', 'dataint', 'dataint', 'dataint', 'dataint', 'dataint', 'dataint']
+      headers: [
+        '', '', '',
+        'Group', 'Name',
+
+        'FY Start',
+        'FY YTD',
+        'FY End',
+
+        'Diff',
+        'Days',
+        'Avg',
+
+        fypast ? 'Daily Avg (over whole year)' : 'Daily Avg (Projected) (over whole year)',
+
+        "Cost/TB #{annrate}"
+      ],
+      types: [
+        'na', 'na', 'na',
+        '', 'name',
+
+        'dataint',
+        fypast ? 'na' : 'dataint',
+        fypast ? 'dataint' : 'na',
+
+        'dataint',
+        'dataint',
+        'dataint',
+
+        'dataint',
+        'money'
+      ]
     )
   end
 

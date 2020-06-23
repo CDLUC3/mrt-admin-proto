@@ -9,7 +9,10 @@
 
 <h3>Campus Invoices</h3>
 <ul>
+  <li><%= link_to("FY2020 Invoices", :controller => :query, :action => :coll_invoices, :fy => '2020') %></li>
   <li><%= link_to("FY2019 Invoices", :controller => :query, :action => :coll_invoices, :fy => '2019') %></li>
+  <li><%= link_to("FY2018 Invoices", :controller => :query, :action => :coll_invoices, :fy => '2018') %></li>
+  <li><%= link_to("FY2017 Invoices", :controller => :query, :action => :coll_invoices, :fy => '2017') %></li>
 </ul>
 
 <h3>Metadata Queries: Objects</h3>
