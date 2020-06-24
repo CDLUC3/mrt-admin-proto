@@ -329,6 +329,7 @@ class QueryController < ApplicationController
     fy = params[:fy].to_i
     dstart = "#{fy}-07-01"
     dend = "#{fy+1}-07-01"
+    as_of = params.key?(:as_of) ? params[:as_of] : dend
 
     sql = %{
       select
@@ -336,9 +337,9 @@ class QueryController < ApplicationController
       from
         daily_billing
       where
-        billing_totals_date <= ?
+        billing_totals_date < ?
     }
-    res = run_subquery(sql: sql, params: [dend])
+    res = run_subquery(sql: sql, params: [as_of])
     dytd = res[0].to_s;
     fypast = (dytd >= dend)
     rate = (dend <= '2019-07-01') ? 0.000000000001780822 : 0.000000000000410959
@@ -403,7 +404,7 @@ class QueryController < ApplicationController
           and
             billing_totals_date >= dstart
           and
-            billing_totals_date < dend
+            billing_totals_date <= dytd
         ) as days_available,
         (
           select
@@ -424,14 +425,14 @@ class QueryController < ApplicationController
           and
             billing_totals_date >= dstart
           and
-            billing_totals_date < dend
+            billing_totals_date <= dytd
         ) as average_available,
         (
           select
-            case
+            (case
               when datediff(dend, dytd) = 0 then average_available * days_available
               else (average_available * days_available) + (ytd_size * (datediff(dend, dytd) - 1))
-            end / datediff(dend, dstart)
+            end) / datediff(dend, dstart)
         ) as daily_average_projected,
         (
           select daily_average_projected * rate * 365
@@ -502,7 +503,7 @@ class QueryController < ApplicationController
         ) as days_projected,
         (
           select
-            sum(billable_size) / datediff(dytd, dstart)
+            sum(billable_size) / (datediff(dytd, dstart) + 1)
           from
             daily_billing db
           inner join owner_list ol2
@@ -512,7 +513,7 @@ class QueryController < ApplicationController
           and
             billing_totals_date >= dstart
           and
-            billing_totals_date < dend
+            billing_totals_date <= dytd
         ) as average_available,
         (
           select (
@@ -548,9 +549,9 @@ class QueryController < ApplicationController
         '', '', '', '',
         'Group', 'Name',
 
-        'FY Start',
-        'FY YTD',
-        'FY End',
+        "FY Start #{dstart}",
+        "FY YTD #{dytd}",
+        "FY End #{dend}",
 
         'Diff',
         'Days',
