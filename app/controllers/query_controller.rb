@@ -337,9 +337,11 @@ class QueryController < ApplicationController
       from
         daily_billing
       where
+        billing_totals_date <= ?
+      and
         billing_totals_date < ?
     }
-    res = run_subquery(sql: sql, params: [as_of])
+    res = run_subquery(sql: sql, params: [as_of, dend])
     dytd = res[0].to_s;
     fypast = (dytd >= dend)
     rate = (dend <= '2019-07-01') ? 0.000000000001780822 : 0.000000000000410959
@@ -517,7 +519,7 @@ class QueryController < ApplicationController
         ) as average_available,
         (
           select (
-            (average_available * days_available) + (ytd_size * datediff(dend, dytd))
+            (average_available * days_available) + (ytd_size * (datediff(dend, dytd) - 1))
           ) / datediff(dend, dstart)
         ) as daily_average_projected,
         (
