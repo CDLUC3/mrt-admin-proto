@@ -584,7 +584,7 @@ class QueryController < ApplicationController
         (
           select
             case
-              when dstart < '2019-07-01' then unexempt_average_projected
+            when dstart < '2019-07-01' then null
               when unexempt_average_projected < 10000000000000 then 0
               else unexempt_average_projected - 10000000000000
             end * rate * 365
@@ -697,7 +697,8 @@ class QueryController < ApplicationController
         (
           select
             case
-              when dstart < '2019-07-01' and unexempt_average_projected < (50 / rate / 365) then 50 / rate / 365
+              when dstart >= '2019-07-01' then null
+              when unexempt_average_projected < (50 / rate / 365) then 50 / rate / 365
               else unexempt_average_projected
             end * rate * 365
         ) as cost_adj
