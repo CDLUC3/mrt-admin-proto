@@ -354,6 +354,7 @@ class QueryController < ApplicationController
         ? as dytd,
         ? as rate,
         ogroup,
+        own_name,
         collection_name,
         (
           select
@@ -476,6 +477,7 @@ class QueryController < ApplicationController
         ? as dytd,
         ? as rate,
         ogroup,
+        max('-- Total --') as own_name,
         max('-- Total --') as collection_name,
         (
           select
@@ -582,7 +584,6 @@ class QueryController < ApplicationController
         (
           select
             case
-              when dstart < '2019-07-01' and unexempt_average_projected < (50 / rate / 365) then 50 / rate / 365
               when dstart < '2019-07-01' then unexempt_average_projected
               when unexempt_average_projected < 10000000000000 then 0
               else unexempt_average_projected - 10000000000000
@@ -592,17 +593,131 @@ class QueryController < ApplicationController
         owner_list ol
       group by
         ogroup
+      union
+      select
+        ? as dstart,
+        ? as dend,
+        ? as dytd,
+        ? as rate,
+        ogroup,
+        ol.own_name,
+        max('-- Special Total --') as collection_name,
+        (
+          select
+            ifnull(sum(billable_size), 0)
+          from
+            daily_billing db
+          where
+            ol.inv_owner_id = db.inv_owner_id
+          and
+            billing_totals_date = dstart
+        ) as start_size,
+        (
+          select
+            ifnull(sum(billable_size), 0)
+          from
+            daily_billing db
+          where
+            ol.inv_owner_id = db.inv_owner_id
+          and
+            billing_totals_date = dytd
+        ) as ytd_size,
+        (
+          select
+            ifnull(sum(billable_size), 0)
+          from
+            daily_billing db
+          where
+            ol.inv_owner_id = db.inv_owner_id
+          and
+            billing_totals_date = dend
+        ) as end_size,
+        (
+          select ytd_size - start_size
+        ) as diff_size,
+        (
+          select
+            case
+              when datediff(dend, dytd) = 0 then datediff(dytd, dstart)
+              else datediff(dytd, dstart) + 1
+            end
+        ) as days_available,
+        (
+          select
+            case
+              when datediff(dend, dytd) = 0 then 0
+              else datediff(dend, dytd) - 1
+            end
+        ) as days_projected,
+        (
+          select
+            sum(billable_size) / (datediff(dytd, dstart) + 1)
+          from
+            daily_billing db
+          where
+            ol.inv_owner_id = db.inv_owner_id
+          and
+            billing_totals_date >= dstart
+          and
+            billing_totals_date <= dytd
+        ) as average_available,
+        (
+          select (
+            (average_available * days_available) + (ytd_size * (datediff(dend, dytd) - 1))
+          ) / datediff(dend, dstart)
+        ) as daily_average_projected,
+        (
+          select
+            case
+              when dstart < '2019-07-01' then
+                (
+                  select
+                    ifnull((
+                      select
+                        sum(exempt_bytes)
+                      from
+                        billing_exemptions be
+                      where
+                        ol.inv_owner_id = be.inv_owner_id
+                    ), 0)
+                )
+              else 0
+            end
+        ) as exempt_bytes,
+        (
+          select
+            case
+              when daily_average_projected < exempt_bytes then 0
+              else daily_average_projected - exempt_bytes
+            end
+        ) as unexempt_average_projected,
+        (
+          select unexempt_average_projected * rate * 365
+        ) as cost,
+        (
+          select
+            case
+              when dstart < '2019-07-01' and unexempt_average_projected < (50 / rate / 365) then 50 / rate / 365
+              else unexempt_average_projected
+            end * rate * 365
+        ) as cost_adj
+      from
+        owner_list ol
+      group by
+        ogroup,
+        own_name
       order by
         ogroup,
+        own_name,
         collection_name
     }
     run_query(
       sql: sql,
-      params: [dstart, dend, dytd, rate, dstart, dend, dytd, rate],
+      params: [dstart, dend, dytd, rate, dstart, dend, dytd, rate, dstart, dend, dytd, rate],
       title: "Invoice by Collection for FY#{fy}",
       headers: [
         '', '', '', '',
-        'Group', 'Name',
+        'Group', 'Owner', 'Collection',
 
         "FY Start",
         "FY YTD",
@@ -622,7 +737,7 @@ class QueryController < ApplicationController
       ],
       types: [
         'na', 'na', 'na', 'na',
-        '', 'name',
+        '', 'name', 'name',
 
         'dataint',
         fypast ? 'na' : 'dataint',
@@ -640,7 +755,7 @@ class QueryController < ApplicationController
         'money',
         'money'
       ],
-      filterCol: 5
+      filterCol: 6
     )
   end
 
