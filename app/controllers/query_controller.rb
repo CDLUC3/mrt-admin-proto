@@ -326,11 +326,19 @@ class QueryController < ApplicationController
   end
 
   def coll_invoices
+    # Fiscal year to report on.  Starting with FY2019, there are significant changes to the rate and adjustments for charge backs.
     fy = params[:fy].to_i
+
+    # FY Start Date
     dstart = "#{fy}-07-01"
+
+    # FY end date
     dend = "#{fy+1}-07-01"
+
+    # As of allows you to test the pro-rating logic by using only a portion of data for a FY
     as_of = params.key?(:as_of) ? params[:as_of] : dend
 
+    # Compute the last day in a FY (at or before the as_of date) for which records exist
     sql = %{
       select
         max(billing_totals_date)
@@ -342,19 +350,37 @@ class QueryController < ApplicationController
         billing_totals_date < ?
     }
     res = run_subquery(sql: sql, params: [as_of, dend])
+
+    # YTD year to date date determined by the last available billing record
     dytd = res[0].to_s;
+
+    # Determine if the fiscal year is in the past
     fypast = (Time.new.strftime('%Y-%m-%d') >= dend)
+
+    # Compute the charge rate.  Before FY19: $650/TB.  After: $150/TB.
     rate = (dend <= '2019-07-01') ? 0.000000000001780822 : 0.000000000000410959
+
+    # Format the annual rate to 2 digits of precision
     annrate = ((rate * 1_000_000_000_000 * 365) * 100).to_i / 100.0
 
     sql = %{
+      /*
+        Compute usage at the campus/owner/collection level.
+        - All Merritt objects have a collection and an owner object.
+        - Generally, all objects in a collection have the same owner.
+        - Some system collections have objects with differing ownership.
+        As of June 2020, 37 "owner" objects exist in Merritt.
+        "Campus" or "ogroup" is a logical grouping of the 37 objects to the 10 UC campuses + CDL.
+      */
       select
+        /* Select the query parameters to make them accessible to other calculations*/
         ? as dstart,
         ? as dend,
         ? as dytd,
         ? as rate,
-        ogroup,
-        own_name,
+
+        ogroup                          /* campus */,
+        own_name                        /* Merritt ownership object.*/,
         collection_name,
         (
           select
@@ -367,7 +393,7 @@ class QueryController < ApplicationController
             c.inv_owner_id = db.inv_owner_id
           and
             billing_totals_date = dstart
-        ) as start_size,
+        ) as start_size                  /* usage on FY start date */,
         (
           select
             ifnull(avg(billable_size), 0)
@@ -379,7 +405,7 @@ class QueryController < ApplicationController
             c.inv_owner_id = db.inv_owner_id
           and
             billing_totals_date = dytd
-        ) as ytd_size,
+        ) as ytd_size                    /* usage on YTD date */,
         (
           select
             ifnull(avg(billable_size), 0)
@@ -391,10 +417,10 @@ class QueryController < ApplicationController
             c.inv_owner_id = db.inv_owner_id
           and
             billing_totals_date = dend
-        ) as end_size,
+        ) as end_size                    /* usage on FY end date */,
         (
           select ytd_size - start_size
-        ) as diff_size,
+        ) as diff_size                   /* YTD collection growth */,
         (
           select
             count(billable_size)
@@ -408,14 +434,10 @@ class QueryController < ApplicationController
             billing_totals_date >= dstart
           and
             billing_totals_date <= dytd
-        ) as days_available,
+        ) as days_available               /* number of billing day records in database */,
         (
-          select
-            case
-              when datediff(dend, dytd) = 0 then 0
-              else datediff(dend, dytd) - 1
-            end
-        ) as days_projected,
+          select if(datediff(dend, dytd) = 0, 0, datediff(dend, dytd) - 1)
+        ) as days_projected               /* number of days to "project" to the end of the FY*/,
         (
           select
             avg(billable_size)
@@ -429,17 +451,15 @@ class QueryController < ApplicationController
             billing_totals_date >= dstart
           and
             billing_totals_date <= dytd
-        ) as average_available,
+        ) as average_available            /* YTD average size */,
         (
           select
-            (case
-              when datediff(dend, dytd) = 0 then average_available * days_available
-              else (average_available * days_available) + (ytd_size * (datediff(dend, dytd) - 1))
-            end) / datediff(dend, dstart)
-        ) as daily_average_projected,
+            ((average_available * days_available) + (ytd_size * days_projected)) / datediff(dend, dstart)
+        ) as daily_average_projected      /* Projected average for the FY */,
         (
           select
             case
+              /* exemptions only apply before FY19*/
               when dstart < '2019-07-01' then
                 (
                   select
@@ -456,13 +476,9 @@ class QueryController < ApplicationController
                 )
               else 0
             end
-        ) as exempt_bytes,
+        ) as exempt_bytes                  /* If before FY19, compute storage exemption per collection */,
         (
-          select
-            case
-              when daily_average_projected < exempt_bytes then 0
-              else daily_average_projected - exempt_bytes
-            end
+          select if(daily_average_projected < exempt_bytes, 0, daily_average_projected - exempt_bytes)
         ) as unexempt_average_projected,
         (
           select unexempt_average_projected * rate * 365
@@ -470,7 +486,18 @@ class QueryController < ApplicationController
         null as cost_adj
       from
         owner_collections c
+
       union
+
+      /*
+        Aggregated usage at the CAMPUS level.
+        - Before FY19: invoices were produced at the "owner" level, but only a fraction (14 of 37) were sent.
+          - Grandfathered content has been designated as "exempt".
+          - Exemption totals are pulled from a separate table.
+          - A $50 minimum is applied to each invoice.
+        - FY19 and beyond: invoices will be produced at a "campus" level.
+          - Each campus will receive 10TB of free storage -- this replaces the notion of "exempt" content.
+      */
       select
         ? as dstart,
         ? as dend,
@@ -519,22 +546,14 @@ class QueryController < ApplicationController
           select ytd_size - start_size
         ) as diff_size,
         (
-          select
-            case
-              when datediff(dend, dytd) = 0 then datediff(dytd, dstart)
-              else datediff(dytd, dstart) + 1
-            end
+          select if(datediff(dend, dytd) = 0, datediff(dytd, dstart), datediff(dytd, dstart) + 1)
         ) as days_available,
         (
-          select
-            case
-              when datediff(dend, dytd) = 0 then 0
-              else datediff(dend, dytd) - 1
-            end
+          select if (datediff(dend, dytd) = 0, 0, datediff(dend, dytd) - 1)
         ) as days_projected,
         (
           select
-            sum(billable_size) / (datediff(dytd, dstart) + 1)
+            sum(billable_size) / days_available
           from
             daily_billing db
           inner join owner_list ol2
@@ -548,7 +567,7 @@ class QueryController < ApplicationController
         ) as average_available,
         (
           select (
-            (average_available * days_available) + (ytd_size * (datediff(dend, dytd) - 1))
+            (average_available * days_available) + (ytd_size * days_projected)
           ) / datediff(dend, dstart)
         ) as daily_average_projected,
         (
@@ -572,11 +591,7 @@ class QueryController < ApplicationController
             end
         ) as exempt_bytes,
         (
-          select
-            case
-              when daily_average_projected < exempt_bytes then 0
-              else daily_average_projected - exempt_bytes
-            end
+          select if(daily_average_projected < exempt_bytes, 0, daily_average_projected - exempt_bytes)
         ) as unexempt_average_projected,
         (
           select unexempt_average_projected * rate * 365
@@ -584,8 +599,12 @@ class QueryController < ApplicationController
         (
           select
             case
-            when dstart < '2019-07-01' then null
+              /* Before FY19, exemptions apply */
+              when dstart < '2019-07-01' then null
+
+              /* Starting in FY19, each campus receives 10TB of free storage */
               when unexempt_average_projected < 10000000000000 then 0
+
               else unexempt_average_projected - 10000000000000
             end * rate * 365
         ) as cost_adj
@@ -593,7 +612,18 @@ class QueryController < ApplicationController
         owner_list ol
       group by
         ogroup
+
       union
+
+      /*
+        Aggregated usage at the Merritt owner object level.
+        - Before FY19: invoices were produced at the "owner" level, but only a fraction (14 of 37) were sent.
+          - Grandfathered content has been designated as "exempt".
+          - Exemption totals are pulled from a separate table.
+          - A $50 minimum is applied to each invoice.
+        - FY19 and beyond: invoices will be produced at a "campus" level.
+          - Each campus will receive 10TB of free storage -- this replaces the notion of "exempt" content.
+      */
       select
         ? as dstart,
         ? as dend,
@@ -636,22 +666,14 @@ class QueryController < ApplicationController
           select ytd_size - start_size
         ) as diff_size,
         (
-          select
-            case
-              when datediff(dend, dytd) = 0 then datediff(dytd, dstart)
-              else datediff(dytd, dstart) + 1
-            end
+          select if(datediff(dend, dytd) = 0, datediff(dytd, dstart), datediff(dytd, dstart) + 1)
         ) as days_available,
         (
-          select
-            case
-              when datediff(dend, dytd) = 0 then 0
-              else datediff(dend, dytd) - 1
-            end
+          select if(datediff(dend, dytd) = 0, 0, datediff(dend, dytd) - 1)
         ) as days_projected,
         (
           select
-            sum(billable_size) / (datediff(dytd, dstart) + 1)
+            sum(billable_size) / days_available
           from
             daily_billing db
           where
@@ -663,7 +685,7 @@ class QueryController < ApplicationController
         ) as average_available,
         (
           select (
-            (average_available * days_available) + (ytd_size * (datediff(dend, dytd) - 1))
+            (average_available * days_available) + (ytd_size * days_projected)
           ) / datediff(dend, dstart)
         ) as daily_average_projected,
         (
@@ -685,11 +707,7 @@ class QueryController < ApplicationController
             end
         ) as exempt_bytes,
         (
-          select
-            case
-              when daily_average_projected < exempt_bytes then 0
-              else daily_average_projected - exempt_bytes
-            end
+          select if(daily_average_projected < exempt_bytes, 0, daily_average_projected - exempt_bytes)
         ) as unexempt_average_projected,
         (
           select unexempt_average_projected * rate * 365
@@ -697,7 +715,10 @@ class QueryController < ApplicationController
         (
           select
             case
+              /* Starting in FY19, adjustments are applied at the "campus" level */
               when dstart >= '2019-07-01' then null
+
+              /* Apply a minimum charge of $50 per owner */
               when unexempt_average_projected < (50 / rate / 365) then 50 / rate / 365
               else unexempt_average_projected
             end * rate * 365
@@ -714,7 +735,12 @@ class QueryController < ApplicationController
     }
     run_query(
       sql: sql,
-      params: [dstart, dend, dytd, rate, dstart, dend, dytd, rate, dstart, dend, dytd, rate],
+      # Note that the 4 parameters are passed 3 times since they are used in each of the 3 queries
+      params: [
+        dstart, dend, dytd, rate,
+        dstart, dend, dytd, rate,
+        dstart, dend, dytd, rate
+      ],
       title: "Invoice by Collection for FY#{fy}",
       headers: [
         '', '', '', '',
