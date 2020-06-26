@@ -343,7 +343,7 @@ class QueryController < ApplicationController
     }
     res = run_subquery(sql: sql, params: [as_of, dend])
     dytd = res[0].to_s;
-    fypast = (dytd >= dend)
+    fypast = (Time.new.strftime('%Y-%m-%d') >= dend)
     rate = (dend <= '2019-07-01') ? 0.000000000001780822 : 0.000000000000410959
     annrate = ((rate * 1_000_000_000_000 * 365) * 100).to_i / 100.0
 
@@ -437,7 +437,34 @@ class QueryController < ApplicationController
             end) / datediff(dend, dstart)
         ) as daily_average_projected,
         (
-          select daily_average_projected * rate * 365
+          select
+            case
+              when dstart < '2019-07-01' then
+                (
+                  select
+                    ifnull((
+                      select
+                        exempt_bytes
+                      from
+                        billing_exemptions be
+                      where
+                        be.inv_owner_id = c.inv_owner_id
+                      and
+                        be.inv_collection_id = c.inv_collection_id
+                    ), 0)
+                )
+              else 0
+            end
+        ) as exempt_bytes,
+        (
+          select
+            case
+              when daily_average_projected < exempt_bytes then 0
+              else daily_average_projected - exempt_bytes
+            end
+        ) as unexempt_average_projected,
+        (
+          select unexempt_average_projected * rate * 365
         ) as cost,
         null as cost_adj
       from
@@ -523,16 +550,42 @@ class QueryController < ApplicationController
           ) / datediff(dend, dstart)
         ) as daily_average_projected,
         (
-          select daily_average_projected * rate * 365
+          select
+            case
+              when dstart < '2019-07-01' then
+                (
+                  select
+                    ifnull((
+                      select
+                        sum(exempt_bytes)
+                      from
+                        billing_exemptions be
+                      inner join owner_list ol2
+                        on ol2.inv_owner_id = be.inv_owner_id
+                      where
+                        ol2.ogroup = ol.ogroup
+                    ), 0)
+                )
+              else 0
+            end
+        ) as exempt_bytes,
+        (
+          select
+            case
+              when daily_average_projected < exempt_bytes then 0
+              else daily_average_projected - exempt_bytes
+            end
+        ) as unexempt_average_projected,
+        (
+          select unexempt_average_projected * rate * 365
         ) as cost,
         (
           select
             case
-              when ogroup = 'CDL' then 0
-              when ogroup = 'Other' then 0
-              when dstart < '2019-07-01' then daily_average_projected
-              when daily_average_projected < 10000000000000 then 0
-              else daily_average_projected - 10000000000000
+              when dstart < '2019-07-01' and unexempt_average_projected < (50 / rate / 365) then 50 / rate / 365
+              when dstart < '2019-07-01' then unexempt_average_projected
+              when unexempt_average_projected < 10000000000000 then 0
+              else unexempt_average_projected - 10000000000000
             end * rate * 365
         ) as cost_adj
       from
@@ -551,9 +604,9 @@ class QueryController < ApplicationController
         '', '', '', '',
         'Group', 'Name',
 
-        "FY Start #{dstart}",
-        "FY YTD #{dytd}",
-        "FY End #{dend}",
+        "FY Start",
+        "FY YTD",
+        "FY End",
 
         'Diff',
         'Days',
@@ -561,6 +614,8 @@ class QueryController < ApplicationController
         'Avg',
 
         'Daily Avg (Projected) (over whole year)',
+        'Exempt Bytes',
+        'Unexempt Avg',
 
         "Cost/TB #{annrate}",
         "Adjusted Cost"
@@ -578,7 +633,9 @@ class QueryController < ApplicationController
         fypast ? 'na' : 'dataint',
         'dataint',
 
-        fypast ? 'na' : 'dataint',
+        'dataint',
+        fypast ? 'dataint' : 'na',
+        'dataint',
 
         'money',
         'money'
