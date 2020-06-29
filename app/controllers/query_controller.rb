@@ -363,8 +363,10 @@ class QueryController < ApplicationController
     # Format the annual rate to 2 digits of precision
     annrate = ((rate * 1_000_000_000_000 * 365) * 100).to_i / 100.0
 
-    sql = %{
+    sqlfrag = %{
       /*
+        The following query fragment will be used 3 times to create 3 levels of groupings.
+
         Compute usage at the campus/owner/collection level.
         - All Merritt objects have a collection and an owner object.
         - Generally, all objects in a collection have the same owner.
@@ -486,6 +488,33 @@ class QueryController < ApplicationController
         null as cost_adj
       from
         owner_collections c
+    }
+
+    sql = %{
+      /*
+        Select campus/owner/collection level.
+      */
+      select
+        dstart,
+        ogroup                          /* campus */,
+        own_name                        /* Merritt ownership object.*/,
+        collection_name,
+        start_size                  /* usage on FY start date */,
+        ytd_size                    /* usage on YTD date */,
+        end_size                    /* usage on FY end date */,
+        diff_size                   /* YTD collection growth */,
+        days_available               /* number of billing day records in database */,
+        days_projected               /* number of days to "project" to the end of the FY*/,
+        average_available            /* YTD average size */,
+        daily_average_projected      /* Projected average for the FY */,
+        exempt_bytes                  /* If before FY19, compute storage exemption per collection */,
+        unexempt_average_projected,
+        cost,
+        cost_adj
+      from
+      (
+        #{sqlfrag}
+      ) collq
 
       union
 
@@ -499,103 +528,21 @@ class QueryController < ApplicationController
           - Each campus will receive 10TB of free storage -- this replaces the notion of "exempt" content.
       */
       select
-        ? as dstart,
-        ? as dend,
-        ? as dytd,
-        ? as rate,
+        max(dstart) as dstart,
         ogroup,
         max('-- Total --') as own_name,
         max('-- Total --') as collection_name,
-        (
-          select
-            ifnull(sum(billable_size), 0)
-          from
-            daily_billing db
-          inner join owner_list ol2
-            on ol2.inv_owner_id = db.inv_owner_id
-          where
-            ol2.ogroup = ol.ogroup
-          and
-            billing_totals_date = dstart
-        ) as start_size,
-        (
-          select
-            ifnull(sum(billable_size), 0)
-          from
-            daily_billing db
-          inner join owner_list ol2
-            on ol2.inv_owner_id = db.inv_owner_id
-          where
-            ol2.ogroup = ol.ogroup
-          and
-            billing_totals_date = dytd
-        ) as ytd_size,
-        (
-          select
-            ifnull(sum(billable_size), 0)
-          from
-            daily_billing db
-          inner join owner_list ol2
-            on ol2.inv_owner_id = db.inv_owner_id
-          where
-            ol2.ogroup = ol.ogroup
-          and
-            billing_totals_date = dend
-        ) as end_size,
-        (
-          select ytd_size - start_size
-        ) as diff_size,
-        (
-          select if(datediff(dend, dytd) = 0, datediff(dytd, dstart), datediff(dytd, dstart) + 1)
-        ) as days_available,
-        (
-          select if (datediff(dend, dytd) = 0, 0, datediff(dend, dytd) - 1)
-        ) as days_projected,
-        (
-          select
-            sum(billable_size) / days_available
-          from
-            daily_billing db
-          inner join owner_list ol2
-            on ol2.inv_owner_id = db.inv_owner_id
-          where
-            ol2.ogroup = ol.ogroup
-          and
-            billing_totals_date >= dstart
-          and
-            billing_totals_date <= dytd
-        ) as average_available,
-        (
-          select (
-            (average_available * days_available) + (ytd_size * days_projected)
-          ) / datediff(dend, dstart)
-        ) as daily_average_projected,
-        (
-          select
-            case
-              when dstart < '2019-07-01' then
-                (
-                  select
-                    ifnull((
-                      select
-                        sum(exempt_bytes)
-                      from
-                        billing_exemptions be
-                      inner join owner_list ol2
-                        on ol2.inv_owner_id = be.inv_owner_id
-                      where
-                        ol2.ogroup = ol.ogroup
-                    ), 0)
-                )
-              else 0
-            end
-        ) as exempt_bytes,
-        (
-          select if(daily_average_projected < exempt_bytes, 0, daily_average_projected - exempt_bytes)
-        ) as unexempt_average_projected,
-        (
-          select unexempt_average_projected * rate * 365
-        ) as cost,
+        sum(start_size) as start_size,
+        sum(ytd_size) as ytd_size,
+        sum(end_size) as end_size,
+        sum(diff_size) as end_size,
+        null as days_available,
+        max(days_projected) as days_projected,
+        null as average_available,
+        sum(daily_average_projected) as daily_average_projected,
+        sum(exempt_bytes) as exempt_bytes,
+        sum(unexempt_average_projected) as unexempt_average_projected,
+        sum(cost) as cost,
         (
           select
             case
@@ -603,13 +550,14 @@ class QueryController < ApplicationController
               when dstart < '2019-07-01' then null
 
               /* Starting in FY19, each campus receives 10TB of free storage */
-              when unexempt_average_projected < 10000000000000 then 0
-
-              else unexempt_average_projected - 10000000000000
+              when sum(unexempt_average_projected) < 10000000000000 then 0
+              else sum(unexempt_average_projected) - 10000000000000
             end * rate * 365
         ) as cost_adj
       from
-        owner_list ol
+      (
+        #{sqlfrag}
+      ) collq
       group by
         ogroup
 
@@ -624,110 +572,40 @@ class QueryController < ApplicationController
         - FY19 and beyond: invoices will be produced at a "campus" level.
           - Each campus will receive 10TB of free storage -- this replaces the notion of "exempt" content.
       */
-      select
-        ? as dstart,
-        ? as dend,
-        ? as dytd,
-        ? as rate,
-        ogroup,
-        ol.own_name,
-        max('-- Special Total --') as collection_name,
-        (
-          select
-            ifnull(sum(billable_size), 0)
-          from
-            daily_billing db
-          where
-            ol.inv_owner_id = db.inv_owner_id
-          and
-            billing_totals_date = dstart
-        ) as start_size,
-        (
-          select
-            ifnull(sum(billable_size), 0)
-          from
-            daily_billing db
-          where
-            ol.inv_owner_id = db.inv_owner_id
-          and
-            billing_totals_date = dytd
-        ) as ytd_size,
-        (
-          select
-            ifnull(sum(billable_size), 0)
-          from
-            daily_billing db
-          where
-            ol.inv_owner_id = db.inv_owner_id
-          and
-            billing_totals_date = dend
-        ) as end_size,
-        (
-          select ytd_size - start_size
-        ) as diff_size,
-        (
-          select if(datediff(dend, dytd) = 0, datediff(dytd, dstart), datediff(dytd, dstart) + 1)
-        ) as days_available,
-        (
-          select if(datediff(dend, dytd) = 0, 0, datediff(dend, dytd) - 1)
-        ) as days_projected,
-        (
-          select
-            sum(billable_size) / days_available
-          from
-            daily_billing db
-          where
-            ol.inv_owner_id = db.inv_owner_id
-          and
-            billing_totals_date >= dstart
-          and
-            billing_totals_date <= dytd
-        ) as average_available,
-        (
-          select (
-            (average_available * days_available) + (ytd_size * days_projected)
-          ) / datediff(dend, dstart)
-        ) as daily_average_projected,
-        (
-          select
-            case
-              when dstart < '2019-07-01' then
-                (
-                  select
-                    ifnull((
-                      select
-                        sum(exempt_bytes)
-                      from
-                        billing_exemptions be
-                      where
-                        ol.inv_owner_id = be.inv_owner_id
-                    ), 0)
-                )
-              else 0
-            end
-        ) as exempt_bytes,
-        (
-          select if(daily_average_projected < exempt_bytes, 0, daily_average_projected - exempt_bytes)
-        ) as unexempt_average_projected,
-        (
-          select unexempt_average_projected * rate * 365
-        ) as cost,
-        (
-          select
-            case
-              /* Starting in FY19, adjustments are applied at the "campus" level */
-              when dstart >= '2019-07-01' then null
 
-              /* Apply a minimum charge of $50 per owner */
-              when unexempt_average_projected < (50 / rate / 365) then 50 / rate / 365
-              else unexempt_average_projected
-            end * rate * 365
+      select
+        max(dstart) as dstart,
+        ogroup,
+        own_name,
+        max('-- Special Total --') as collection_name,
+        sum(start_size) as start_size,
+        sum(ytd_size) as ytd_size,
+        sum(end_size) as end_size,
+        sum(diff_size) as end_size,
+        null as days_available,
+        max(days_projected) as days_projected,
+        null as average_available,
+        sum(daily_average_projected) as daily_average_projected,
+        sum(exempt_bytes) as exempt_bytes,
+        sum(unexempt_average_projected) as unexempt_average_projected,
+        sum(cost) as cost,
+        (
+          select
+            case
+              /* Before FY19, $50 minimum per Merritt Owner */
+              when dstart >= '2019-07-01' then null
+              when sum(cost) > 50 then sum(cost)
+              else 50
+            end
         ) as cost_adj
       from
-        owner_list ol
+      (
+        #{sqlfrag}
+      ) collq
       group by
         ogroup,
         own_name
+
       order by
         ogroup,
         own_name,
@@ -739,11 +617,11 @@ class QueryController < ApplicationController
       params: [
         dstart, dend, dytd, rate,
         dstart, dend, dytd, rate,
-        dstart, dend, dytd, rate
+        dstart, dend, dytd, rate,
       ],
       title: "Invoice by Collection for FY#{fy}",
       headers: [
-        '', '', '', '',
+        '',
         'Group', 'Owner', 'Collection',
 
         "FY Start",
@@ -763,7 +641,7 @@ class QueryController < ApplicationController
         "Adjusted Cost"
       ],
       types: [
-        'na', 'na', 'na', 'na',
+        'na',
         '', 'name', 'name',
 
         'dataint',
@@ -782,7 +660,7 @@ class QueryController < ApplicationController
         'money',
         'money'
       ],
-      filterCol: 6
+      filterCol: 3
     )
   end
 
