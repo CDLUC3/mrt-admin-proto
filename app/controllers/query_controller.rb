@@ -553,17 +553,28 @@ class QueryController < ApplicationController
         ) as days_projected,
         (
           select
-            sum(billable_size) / days_available
-          from
-            daily_billing db
+            sum(avg_billable_size)
+          from (
+            select
+              inv_owner_id,
+              inv_collection_id,
+              avg(billable_size) as avg_billable_size
+            from
+              daily_billing db
+            where
+              billing_totals_date >= ?
+            and
+              billing_totals_date <= ?
+            group by
+              db.inv_owner_id,
+              db.inv_collection_id
+          ) adb
           inner join owner_list ol2
-            on ol2.inv_owner_id = db.inv_owner_id
+            on adb.inv_owner_id = ol2.inv_owner_id
           where
             ol2.ogroup = ol.ogroup
-          and
-            billing_totals_date >= dstart
-          and
-            billing_totals_date <= dytd
+          group by
+            ol2.ogroup
         ) as average_available,
         (
           select (
@@ -673,15 +684,26 @@ class QueryController < ApplicationController
         ) as days_projected,
         (
           select
-            sum(billable_size) / days_available
-          from
-            daily_billing db
+            sum(avg_billable_size)
+          from (
+            select
+              inv_owner_id,
+              inv_collection_id,
+              avg(billable_size) as avg_billable_size
+            from
+              daily_billing db
+            where
+              billing_totals_date >= ?
+            and
+              billing_totals_date <= ?
+            group by
+              db.inv_owner_id,
+              db.inv_collection_id
+          ) adb
+          inner join owner_list ol2
+            on adb.inv_owner_id = ol2.inv_owner_id
           where
-            ol.inv_owner_id = db.inv_owner_id
-          and
-            billing_totals_date >= dstart
-          and
-            billing_totals_date <= dytd
+            ol2.inv_owner_id = ol.inv_owner_id
         ) as average_available,
         (
           select (
@@ -738,8 +760,8 @@ class QueryController < ApplicationController
       # Note that the 4 parameters are passed 3 times since they are used in each of the 3 queries
       params: [
         dstart, dend, dytd, rate,
-        dstart, dend, dytd, rate,
-        dstart, dend, dytd, rate
+        dstart, dend, dytd, rate, dstart, dytd,
+        dstart, dend, dytd, rate, dstart, dytd
       ],
       title: "Invoice by Collection for FY#{fy}",
       headers: [
