@@ -358,10 +358,12 @@ class QueryController < ApplicationController
     fypast = (Time.new.strftime('%Y-%m-%d') >= dend)
 
     # Compute the charge rate.  Before FY19: $650/TB.  After: $150/TB.
-    rate = (dend <= '2019-07-01') ? 0.000000000001780822 : 0.000000000000410959
+    # rate = (dend <= '2019-07-01') ? 0.000000000001780822 : 0.000000000000410959
+    # Using our published rate: https://github.com/CDLUC3/mrt-doc/wiki/Policies-and-Procedures#pricing
+    rate = (dend <= '2019-07-01') ? 0.00000000000178 : 0.000000000000410959
 
     # Format the annual rate to 2 digits of precision
-    annrate = ((rate * 1_000_000_000_000 * 365) * 100).to_i / 100.0
+    annrate = (rate * 1_000_000_000_000 * 365).to_i
 
     sqlfrag = %{
       /*
@@ -642,23 +644,25 @@ class QueryController < ApplicationController
       title: "Invoice by Collection for FY#{fy}",
       headers: [
         '',
-        'Group', 'Owner', 'Collection',
+        'Group -- Campus.  This is an grouping applied to Merritt Owner objects within the billing script',
+        'Owner -- Merritt Owner Object.  37 currently exist.',
+        'Collection -- Merritt Collection Name',
 
-        "FY Start",
-        "FY YTD",
-        "FY End",
+        "FY Start -- Billable bytes on the first day of the FY",
+        "FY YTD -- Billable bytes on the most recent reported day from the FY - applies when report is run mid year",
+        "FY End -- Billable bytes on the last day of the FY",
 
-        'Diff',
-        'Days',
-        'Days Projected',
-        'Avg',
+        'Diff -- Bytes added since the start of the FY',
+        'Days -- Days within the FY for which billable bytes were found for a collection',
+        'Days Projected -- Number of days to the end of the FY.  The FY YTD amount will be presumed until the end of the FY',
+        'Avg -- Average bytes found for the days in which content was found',
 
-        'Daily Avg (Projected) (over whole year)',
-        'Owner Exempt Bytes',
-        'Unexempt Avg',
+        'Daily Avg (Projected) (over whole year) -- Average bytes projected to the end of the year AND prorated for collections that were begun over the course of the FY',
+        'Owner Exempt Bytes -- Pre FY2019 byte exemption for a Merritt Owner object',
+        'Unexempt Avg -- Average bytes minus exemption bytes for a Merritt Owner object',
 
-        "Cost/TB #{annrate}",
-        "Adjusted Cost"
+        "Cost/TB #{annrate} -- Cumulative daily storage cost for the entire fiscal year",
+        "Adjusted Cost -- Adjusted cost. Before FY2019, all owners were assessed a $50 minimum charge.  Begining in FY2019, 10TB of complimentary storage are available to each campus."
       ],
       types: [
         'na',
@@ -671,7 +675,7 @@ class QueryController < ApplicationController
         'dataint', #difference
         'dataint', #days
         fypast ? 'na' : 'dataint', #days projected
-        fypast ? 'na' : 'dataint', #average
+        'dataint', #average - particularly useful for partial year collections
 
         'dataint', #projected average
         dstart < '2019-07-01' ? 'dataint' : 'na', # exempt bytes

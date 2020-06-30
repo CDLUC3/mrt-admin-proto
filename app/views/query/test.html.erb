@@ -13,14 +13,17 @@
     <%
     headers.each_with_index do |header, c|
       cname = types[c]
+      harr = header.split(' -- ')
+      title = harr[1] ? harr[1] : ''
+      header = harr[0]
       next if cname == 'na'
       if cname == 'data' || cname == 'dataint'
       %>
-          <th class="sorttable_numeric"><%= header %></th>
+          <th class="sorttable_numeric" title="<%=title%>"><%= header %></th>
       <%
       else
       %>
-          <th><%= header %></th>
+          <th title="<%=title%>"><%= header %></th>
       <%
       end
     end
