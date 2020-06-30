@@ -383,6 +383,7 @@ class QueryController < ApplicationController
 
         ogroup                          /* campus */,
         own_name                        /* Merritt ownership object.*/,
+        inv_owner_id,
         collection_name,
         (
           select
@@ -467,25 +468,16 @@ class QueryController < ApplicationController
                   select
                     ifnull((
                       select
-                        exempt_bytes
+                        max(exempt_bytes)
                       from
-                        billing_exemptions be
+                        billing_owner_exemptions be
                       where
                         be.inv_owner_id = c.inv_owner_id
-                      and
-                        be.inv_collection_id = c.inv_collection_id
                     ), 0)
                 )
               else 0
             end
-        ) as exempt_bytes                  /* If before FY19, compute storage exemption per collection */,
-        (
-          select if(daily_average_projected < exempt_bytes, 0, daily_average_projected - exempt_bytes)
-        ) as unexempt_average_projected,
-        (
-          select unexempt_average_projected * rate * 365
-        ) as cost,
-        null as cost_adj
+        ) as owner_exempt_bytes                  /* If before FY19, compute storage exemption per owner */
       from
         owner_collections c
     }
@@ -507,10 +499,10 @@ class QueryController < ApplicationController
         days_projected               /* number of days to "project" to the end of the FY*/,
         average_available            /* YTD average size */,
         daily_average_projected      /* Projected average for the FY */,
-        exempt_bytes                  /* If before FY19, compute storage exemption per collection */,
-        unexempt_average_projected,
-        cost,
-        cost_adj
+        null as owner_exempt_bytes,
+        null as unexempt_average_projected,
+        null as cost,
+        null as cost_adj
       from
       (
         #{sqlfrag}
@@ -540,9 +532,16 @@ class QueryController < ApplicationController
         max(days_projected) as days_projected,
         null as average_available,
         sum(daily_average_projected) as daily_average_projected,
-        sum(exempt_bytes) as exempt_bytes,
-        sum(unexempt_average_projected) as unexempt_average_projected,
-        sum(cost) as cost,
+        null as owner_exempt_bytes,
+        null as unexempt_average_projected,
+        (
+          select
+            case
+              /* Before FY19, exemptions apply */
+              when dstart < '2019-07-01' then null
+              else sum(daily_average_projected)
+            end * rate * 365
+        ) as cost,
         (
           select
             case
@@ -550,8 +549,8 @@ class QueryController < ApplicationController
               when dstart < '2019-07-01' then null
 
               /* Starting in FY19, each campus receives 10TB of free storage */
-              when sum(unexempt_average_projected) < 10000000000000 then 0
-              else sum(unexempt_average_projected) - 10000000000000
+              when sum(daily_average_projected) < 10000000000000 then 0
+              else sum(daily_average_projected) - 10000000000000
             end * rate * 365
         ) as cost_adj
       from
@@ -586,15 +585,36 @@ class QueryController < ApplicationController
         max(days_projected) as days_projected,
         null as average_available,
         sum(daily_average_projected) as daily_average_projected,
-        sum(exempt_bytes) as exempt_bytes,
-        sum(unexempt_average_projected) as unexempt_average_projected,
-        sum(cost) as cost,
+        max(owner_exempt_bytes) as owner_exempt_bytes,
         (
           select
             case
               /* Before FY19, $50 minimum per Merritt Owner */
               when dstart >= '2019-07-01' then null
-              when sum(cost) > 50 then sum(cost)
+              when (sum(daily_average_projected) - max(owner_exempt_bytes)) > 0
+                then (sum(daily_average_projected) - max(owner_exempt_bytes))
+              else 0
+            end
+        ) as unexempt_average_projected,
+        (
+          select
+            case
+              /* Before FY19, $50 minimum per Merritt Owner */
+              when dstart >= '2019-07-01' then null
+              when (sum(daily_average_projected) - max(owner_exempt_bytes)) * rate * 365 > 0
+                then (sum(daily_average_projected) - max(owner_exempt_bytes)) * rate * 365
+              else 0
+            end
+        ) as cost,
+        (
+          select
+            case
+              /* Before FY19, $50 minimum per Merritt Owner */
+              when dstart >= '2019-07-01' then null
+              when (sum(daily_average_projected) - max(owner_exempt_bytes)) * rate * 365 > 50
+                then (sum(daily_average_projected) - max(owner_exempt_bytes)) * rate * 365
+              when (sum(daily_average_projected) - max(owner_exempt_bytes)) * rate * 365 < 0
+                then 0
               else 50
             end
         ) as cost_adj
@@ -634,7 +654,7 @@ class QueryController < ApplicationController
         'Avg',
 
         'Daily Avg (Projected) (over whole year)',
-        'Exempt Bytes',
+        'Owner Exempt Bytes',
         'Unexempt Avg',
 
         "Cost/TB #{annrate}",
@@ -644,21 +664,21 @@ class QueryController < ApplicationController
         'na',
         '', 'name', 'name',
 
-        'dataint',
-        fypast ? 'na' : 'dataint',
-        fypast ? 'dataint' : 'na',
+        'dataint', #fy start
+        fypast ? 'na' : 'dataint', #ytd
+        fypast ? 'dataint' : 'na', #fy end
 
-        'dataint',
-        'dataint',
-        fypast ? 'na' : 'dataint',
-        'dataint',
+        'dataint', #difference
+        'dataint', #days
+        fypast ? 'na' : 'dataint', #days projected
+        fypast ? 'na' : 'dataint', #average
 
-        'dataint',
-        fypast ? 'dataint' : 'na',
-        'dataint',
+        'dataint', #projected average
+        dstart < '2019-07-01' ? 'dataint' : 'na', # exempt bytes
+        dstart < '2019-07-01' ? 'dataint' : 'na', #unexempt average
 
-        'money',
-        'money'
+        'money', #cost
+        'money' #adj cost
       ],
       filterCol: 3
     )
