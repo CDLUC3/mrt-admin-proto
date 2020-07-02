@@ -421,7 +421,7 @@ class QueryController < ApplicationController
           and
             c.inv_owner_id = db.inv_owner_id
           and
-            billing_totals_date = dend
+            billing_totals_date = date_add(dend, interval -1 day)
         ) as end_size                    /* usage on FY end date */,
         (
           select ytd_size - start_size
